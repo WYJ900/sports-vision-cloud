@@ -144,13 +144,10 @@ class DeviceService:
 
     @classmethod
     async def count_online_devices(cls) -> int:
-        """统计在线设备数"""
+        """统计在线设备数（演示环境仅检查status字段）"""
         collection = cls._get_collection()
-        timeout = datetime.utcnow() - timedelta(minutes=5)
-
         return await collection.count_documents({
-            "status": DeviceStatus.ONLINE,
-            "last_heartbeat": {"$gte": timeout}
+            "status": DeviceStatus.ONLINE
         })
 
     @classmethod
