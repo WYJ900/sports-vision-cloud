@@ -14,9 +14,8 @@ async def init_demo_data():
     """初始化演示数据"""
     from datetime import datetime, timedelta
     import random
-    from passlib.context import CryptContext
+    import hashlib
 
-    pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
     db = Database.get_mongo()
 
     # 检查是否已初始化
@@ -27,11 +26,15 @@ async def init_demo_data():
 
     print("[INIT] 开始初始化演示数据...")
 
+    # 使用简单哈希 (演示用)
+    def simple_hash(password: str) -> str:
+        return hashlib.sha256(password.encode()).hexdigest()
+
     # 3个测试用户
     users = [
-        {"username": "demo1", "email": "demo1@sports.com", "hashed_password": pwd_context.hash("demo123"), "full_name": "张三", "role": "user", "created_at": datetime.utcnow(), "is_active": True},
-        {"username": "demo2", "email": "demo2@sports.com", "hashed_password": pwd_context.hash("demo123"), "full_name": "李四", "role": "user", "created_at": datetime.utcnow(), "is_active": True},
-        {"username": "demo3", "email": "demo3@sports.com", "hashed_password": pwd_context.hash("demo123"), "full_name": "王五", "role": "user", "created_at": datetime.utcnow(), "is_active": True},
+        {"username": "demo1", "email": "demo1@sports.com", "hashed_password": simple_hash("demo123"), "full_name": "张三", "role": "user", "created_at": datetime.utcnow(), "is_active": True},
+        {"username": "demo2", "email": "demo2@sports.com", "hashed_password": simple_hash("demo123"), "full_name": "李四", "role": "user", "created_at": datetime.utcnow(), "is_active": True},
+        {"username": "demo3", "email": "demo3@sports.com", "hashed_password": simple_hash("demo123"), "full_name": "王五", "role": "user", "created_at": datetime.utcnow(), "is_active": True},
     ]
     result = await db.users.insert_many(users)
     user_ids = result.inserted_ids
