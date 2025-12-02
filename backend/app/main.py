@@ -17,7 +17,7 @@ async def init_demo_data():
     from passlib.context import CryptContext
 
     pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-    db = Database.get_db()
+    db = Database.get_mongo()
 
     # 检查是否已初始化
     existing_users = await db.users.count_documents({})
