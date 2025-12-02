@@ -16,7 +16,8 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 24小时
     ALGORITHM: str = "HS256"
 
-    # MongoDB配置
+    # MongoDB配置 (支持 MongoDB Atlas URL)
+    MONGO_URL: str = ""
     MONGO_HOST: str = "localhost"
     MONGO_PORT: int = 27017
     MONGO_DB: str = "sports_vision"
@@ -25,6 +26,9 @@ class Settings(BaseSettings):
 
     @property
     def mongo_uri(self) -> str:
+        # 优先使用完整URL (MongoDB Atlas)
+        if self.MONGO_URL:
+            return self.MONGO_URL
         if self.MONGO_USER and self.MONGO_PASSWORD:
             return f"mongodb://{self.MONGO_USER}:{self.MONGO_PASSWORD}@{self.MONGO_HOST}:{self.MONGO_PORT}"
         return f"mongodb://{self.MONGO_HOST}:{self.MONGO_PORT}"
@@ -41,7 +45,12 @@ class Settings(BaseSettings):
     REDIS_DB: int = 0
 
     # CORS配置
-    CORS_ORIGINS: list[str] = ["http://localhost:3000", "http://localhost:5173"]
+    CORS_ORIGINS: list[str] = [
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "https://sports-vision-cloud.vercel.app",
+        "https://sports-vision-cloud-sv7c.vercel.app",
+    ]
 
     class Config:
         env_file = ".env"

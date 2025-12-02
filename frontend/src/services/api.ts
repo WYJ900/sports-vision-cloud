@@ -2,8 +2,8 @@ import axios, { AxiosInstance, InternalAxiosRequestConfig } from 'axios'
 import { useAuthStore } from '../stores/authStore'
 
 const api: AxiosInstance = axios.create({
-  baseURL: '/api/v1',
-  timeout: 10000,
+  baseURL: import.meta.env.PROD ? 'https://sports-vision-cloud.onrender.com/api/v1' : '/api/v1',
+  timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
   },
