@@ -1,0 +1,85 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+/* 自定义滚动条 */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f0f0f0;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #bfbfbf;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #8c8c8c;
+}
+
+/* 仪表盘卡片样式 */
+.dashboard-card {
+  border-radius: 8px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03), 0 1px 6px -1px rgba(0, 0, 0, 0.02), 0 2px 4px rgba(0, 0, 0, 0.02);
+}
+
+.dashboard-card:hover {
+  box-shadow: 0 3px 6px -4px rgba(0, 0, 0, 0.12), 0 6px 16px 0 rgba(0, 0, 0, 0.08), 0 9px 28px 8px rgba(0, 0, 0, 0.05);
+}
+
+/* 指标卡片 */
+.metric-card {
+  text-align: center;
+  padding: 24px;
+}
+
+.metric-value {
+  font-size: 32px;
+  font-weight: 600;
+  color: #1890ff;
+}
+
+.metric-label {
+  font-size: 14px;
+  color: #8c8c8c;
+  margin-top: 8px;
+}
+
+/* 实时状态指示器 */
+.status-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  margin-right: 8px;
+}
+
+.status-online {
+  background-color: #52c41a;
+  box-shadow: 0 0 8px rgba(82, 196, 26, 0.6);
+}
+
+.status-offline {
+  background-color: #ff4d4f;
+}
+
+.status-idle {
+  background-color: #faad14;
+}

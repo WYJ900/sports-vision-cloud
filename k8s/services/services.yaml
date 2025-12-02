@@ -1,0 +1,68 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-service
+  namespace: sports-vision
+spec:
+  selector:
+    app: backend
+  ports:
+    - port: 8000
+      targetPort: 8000
+  type: ClusterIP
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-service
+  namespace: sports-vision
+spec:
+  selector:
+    app: frontend
+  ports:
+    - port: 80
+      targetPort: 80
+  type: ClusterIP
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongodb-service
+  namespace: sports-vision
+spec:
+  selector:
+    app: mongodb
+  ports:
+    - port: 27017
+      targetPort: 27017
+  clusterIP: None
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: influxdb-service
+  namespace: sports-vision
+spec:
+  selector:
+    app: influxdb
+  ports:
+    - port: 8086
+      targetPort: 8086
+  clusterIP: None
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-service
+  namespace: sports-vision
+spec:
+  selector:
+    app: redis
+  ports:
+    - port: 6379
+      targetPort: 6379
+  type: ClusterIP

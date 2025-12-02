@@ -1,0 +1,74 @@
+version: '3.8'
+
+services:
+  # 前端服务
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    networks:
+      - app-network
+
+  # 后端服务
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    environment:
+      - MONGO_HOST=mongodb
+      - INFLUX_URL=http://influxdb:8086
+      - REDIS_HOST=redis
+    depends_on:
+      - mongodb
+      - influxdb
+      - redis
+    networks:
+      - app-network
+
+  # MongoDB
+  mongodb:
+    image: mongo:7.0
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - app-network
+
+  # InfluxDB
+  influxdb:
+    image: influxdb:2.7
+    ports:
+      - "8086:8086"
+    environment:
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_USERNAME=admin
+      - DOCKER_INFLUXDB_INIT_PASSWORD=adminpassword
+      - DOCKER_INFLUXDB_INIT_ORG=sports_vision
+      - DOCKER_INFLUXDB_INIT_BUCKET=training_data
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=your-influxdb-token
+    volumes:
+      - influxdb_data:/var/lib/influxdb2
+    networks:
+      - app-network
+
+  # Redis
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  mongodb_data:
+  influxdb_data:
+  redis_data:
