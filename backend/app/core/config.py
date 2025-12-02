@@ -1,5 +1,6 @@
 from pydantic_settings import BaseSettings
-from functools import lru_cache
+from typing import Optional
+import os
 
 
 class Settings(BaseSettings):
@@ -26,7 +27,11 @@ class Settings(BaseSettings):
 
     @property
     def mongo_uri(self) -> str:
-        # 优先使用完整URL (MongoDB Atlas)
+        # 优先从环境变量直接读取
+        env_url = os.environ.get("MONGO_URL", "")
+        if env_url:
+            return env_url
+        # 使用 pydantic 加载的值
         if self.MONGO_URL:
             return self.MONGO_URL
         if self.MONGO_USER and self.MONGO_PASSWORD:
@@ -57,6 +62,5 @@ class Settings(BaseSettings):
         case_sensitive = True
 
 
-@lru_cache
 def get_settings() -> Settings:
     return Settings()
