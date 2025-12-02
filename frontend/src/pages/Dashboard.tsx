@@ -120,7 +120,7 @@ function Dashboard() {
     innerRadius: 0.6,
     label: { type: 'inner', offset: '-50%', content: '{value}%', style: { fontSize: 12 } },
     statistic: {
-      title: false,
+      title: { content: '' },
       content: { style: { fontSize: '16px', fontWeight: 'bold' }, content: '训练分布' },
     },
     height: 200,
