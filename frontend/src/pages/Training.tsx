@@ -162,7 +162,7 @@ function Training() {
   }
 
   const startDemo = () => { setDemoMode(true); setSessionTime(0); timerRef.current = window.setInterval(() => setSessionTime((t) => t + 1), 1000); updateMetrics({ hitRate: 65 + Math.random() * 20, reactionTime: 180 + Math.random() * 80, accuracy: 70 + Math.random() * 20, fatigueLevel: 10 + Math.random() * 15, caloriesBurned: 5 + Math.random() * 10 }) }
-  const stopDemo = () => { setDemoMode(false); if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null }; updatePoseData(null) }
+  const stopDemo = () => { setDemoMode(false); if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null }; updatePoseData([]) }
   const resetCamera = useCallback(() => setResetTrigger((t) => t + 1), [])
   const formatTime = (s: number) => `${Math.floor(s / 60).toString().padStart(2, '0')}:${(s % 60).toString().padStart(2, '0')}`
   const isActive = isTraining || demoMode

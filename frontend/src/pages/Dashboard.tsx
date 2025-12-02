@@ -16,7 +16,7 @@ import {
   ArrowUpOutlined,
   ArrowDownOutlined,
 } from '@ant-design/icons'
-import { Line, Gauge, Area, Radar, Pie, DualAxes } from '@ant-design/plots'
+import { Gauge, Area, Radar, Pie, DualAxes } from '@ant-design/plots'
 import { dashboardApi, trainingApi } from '../services/api'
 
 interface DashboardStats {

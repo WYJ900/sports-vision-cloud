@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
 import {
-  Row, Col, Card, Table, Button, Modal, Form, Input, InputNumber,
-  Slider, Tag, Space, Descriptions, Spin, message, Popconfirm,
+  Row, Col, Card, Table, Button, Modal, Form, Input,
+  Slider, Tag, Space, Spin, message,
 } from 'antd'
 import {
   DesktopOutlined, PlusOutlined, SettingOutlined, ReloadOutlined,
-  WifiOutlined, ThunderboltOutlined,
+  
 } from '@ant-design/icons'
 import { deviceApi } from '../services/api'
 

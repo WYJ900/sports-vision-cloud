@@ -1,16 +1,16 @@
 import { useEffect, useState, useMemo } from 'react'
-import { Row, Col, Card, Table, Tag, Space, DatePicker, Spin, Empty, List, Statistic, Progress, Segmented, Tooltip, Badge, Divider, Timeline, Select, Button } from 'antd'
+import { Row, Col, Card, Table, Tag, Space, DatePicker, Spin, List, Statistic, Progress, Segmented, Badge, Divider, Timeline, Select, Button } from 'antd'
 import {
   TrophyOutlined,
   WarningOutlined,
   BulbOutlined,
-  RiseOutlined,
-  FallOutlined,
+  
+  
   FireOutlined,
   ThunderboltOutlined,
   AimOutlined,
   ClockCircleOutlined,
-  HeartOutlined,
+  
   ExperimentOutlined,
   RadarChartOutlined,
   LineChartOutlined,
@@ -24,7 +24,7 @@ import {
   FieldTimeOutlined,
   UserOutlined,
 } from '@ant-design/icons'
-import { Line, Radar, Pie, Heatmap, Column, Area, Gauge, DualAxes, Scatter } from '@ant-design/plots'
+import { Radar, Pie, Heatmap, Column, Area, Gauge, DualAxes, Scatter } from '@ant-design/plots'
 import { trainingApi } from '../services/api'
 import dayjs from 'dayjs'
 
@@ -299,7 +299,7 @@ function Analysis() {
     radius: 0.8,
     innerRadius: 0.6,
     label: { type: 'inner', offset: '-50%', content: '{value}', style: { fontSize: 14, fontWeight: 'bold' } },
-    statistic: { title: false, content: { style: { fontSize: '16px', fontWeight: 'bold' }, content: '训练分布' } },
+    statistic: { content: { style: { fontSize: '16px', fontWeight: 'bold' }, content: '训练分布' } },
     color: ['#52c41a', '#ff4d4f', '#1890ff'],
     height: 200,
   }
