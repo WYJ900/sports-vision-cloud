@@ -40,11 +40,11 @@ async def init_demo_data():
     user_ids = result.inserted_ids
     print(f"[INIT] 创建了 {len(user_ids)} 个用户")
 
-    # 为每个用户创建设备
+    # 为每个用户创建设备 (user_id 转为字符串以匹配查询)
     devices = []
     for i, user_id in enumerate(user_ids):
         devices.append({
-            "device_id": f"OP-{str(i+1).zfill(3)}", "user_id": user_id, "name": f"训练机{i+1}号",
+            "device_id": f"OP-{str(i+1).zfill(3)}", "user_id": str(user_id), "name": f"训练机{i+1}号",
             "type": "orange_pi", "status": "online", "ip_address": f"192.168.1.{100+i}",
             "firmware_version": "1.2.0", "config": {"ball_speed": 50+i*10, "ball_frequency": 2.0, "spin_type": "none", "angle_horizontal": 0, "angle_vertical": 15},
             "last_heartbeat": datetime.utcnow(), "created_at": datetime.utcnow(),
@@ -52,7 +52,7 @@ async def init_demo_data():
     await db.devices.insert_many(devices)
     print(f"[INIT] 创建了 {len(devices)} 个设备")
 
-    # 为每个用户创建训练数据
+    # 为每个用户创建训练数据 (user_id 转为字符串，添加 status 字段)
     training_modes = ["standard", "intensive", "recovery"]
     for idx, user_id in enumerate(user_ids):
         sessions = []
@@ -63,9 +63,10 @@ async def init_demo_data():
                 base_hit_rate = 60 + idx * 8 + random.random() * 15
                 base_reaction = 400 - idx * 30 + random.random() * 100
                 sessions.append({
-                    "user_id": user_id, "device_id": f"OP-{str(idx+1).zfill(3)}",
+                    "user_id": str(user_id), "device_id": f"OP-{str(idx+1).zfill(3)}",
                     "start_time": start_time, "end_time": start_time + timedelta(seconds=duration),
                     "duration_seconds": duration, "training_mode": random.choice(training_modes),
+                    "status": "completed",
                     "metrics": {"hit_rate": min(95, base_hit_rate), "reaction_time": max(200, base_reaction),
                         "accuracy": 65+idx*5+random.random()*20, "fatigue_level": 30+random.random()*40,
                         "calories_burned": duration*0.15+random.random()*50,
@@ -131,3 +132,19 @@ async def root():
 @app.get("/health")
 async def health_check():
     return {"status": "healthy"}
+
+
+@app.post("/admin/reset-demo-data")
+async def reset_demo_data():
+    """重置演示数据（仅限开发/演示环境）"""
+    db = Database.get_mongo()
+    
+    # 清空所有集合
+    await db.users.delete_many({})
+    await db.devices.delete_many({})
+    await db.training_sessions.delete_many({})
+    
+    # 重新初始化
+    await init_demo_data()
+    
+    return {"status": "success", "message": "演示数据已重置"}
