@@ -93,6 +93,50 @@ function Analysis() {
 
   const fetchData = async () => {
     setLoading(true)
+    const username = user?.username || 'demo1'
+    const isDemo = ['demo1', 'demo2', 'demo3'].includes(username.toLowerCase())
+
+    // 演示模式直接使用演示数据，不调用API
+    if (isDemo) {
+      const sessionsData = generateSessionList(username)
+      const trendsData = generateTrendData(username)
+      const config = getUserLevelConfig(username)
+
+      setSessions(sessionsData)
+      setTrends(trendsData)
+      setStats({
+        avg_hit_rate: (config.hitRate.min + config.hitRate.max) / 2,
+        avg_reaction_time: (config.reactionTime.min + config.reactionTime.max) / 2,
+        avg_accuracy: (config.accuracy.min + config.accuracy.max) / 2,
+        total_duration: sessionsData.reduce((sum: number, s: TrainingSession) => sum + s.duration_seconds, 0),
+        total_sessions: sessionsData.length,
+        total_calories: sessionsData.reduce((sum: number, s: TrainingSession) => sum + (s.metrics?.calories_burned || 0), 0),
+      })
+
+      const analysisConfig = {
+        demo1: {
+          strengths: ['训练态度认真', '进步空间大', '基础动作规范'],
+          weaknesses: ['击球稳定性不足', '反应速度偏慢', '体能储备需提升'],
+          improvement_suggestions: ['建议每周训练至少4次，保持稳定频率', '重点练习基础步伐和身体协调性', '加强核心力量训练，提升稳定性', '注意击球节奏，不要急于求成'],
+        },
+        demo2: {
+          strengths: ['正手击球稳定', '反应速度良好', '体能储备充足', '动作标准度高'],
+          weaknesses: ['反手技术待提升', '移动步伐可优化', '高远球落点分散'],
+          improvement_suggestions: ['建议增加反手专项训练，每周至少3次', '加强下肢力量训练，提升移动速度', '练习高远球落点控制，目标准确率提升10%', '注意训练后拉伸，防止运动损伤'],
+        },
+        demo3: {
+          strengths: ['技术全面稳定', '反应速度出色', '比赛经验丰富', '心理素质过硬'],
+          weaknesses: ['部分细节可微调', '需保持巅峰状态', '避免过度训练'],
+          improvement_suggestions: ['保持高强度训练频率，每周5-6次', '注重细节优化和战术变化', '加强针对性对抗训练', '合理安排休息，避免运动损伤'],
+        },
+      }
+      const analysisLevel = username.toLowerCase() as keyof typeof analysisConfig
+      setAnalysis({ ...(analysisConfig[analysisLevel] || analysisConfig.demo1), overall_score: config.overallScore, rank_percentile: config.rankPercentile })
+      setLoading(false)
+      return
+    }
+
+    // 非演示模式，调用API
     try {
       const [sessionsRes, statsRes, trendsRes]: any[] = await Promise.all([
         trainingApi.getSessions(30),
@@ -100,15 +144,12 @@ function Analysis() {
         trainingApi.getTrends(30),
       ])
 
-      // 使用API数据或演示数据（根据用户水平生成）
-      const username = user?.username || 'demo1'
       const sessionsData = sessionsRes.data?.length > 0 ? sessionsRes.data : generateSessionList(username)
       const trendsData = trendsRes.data?.length > 0 ? trendsRes.data : generateTrendData(username)
       const config = getUserLevelConfig(username)
 
       setSessions(sessionsData)
-
-      // 根据用户水平设置统计数据
+      setTrends(trendsData)
       setStats(statsRes.data || {
         avg_hit_rate: (config.hitRate.min + config.hitRate.max) / 2,
         avg_reaction_time: (config.reactionTime.min + config.reactionTime.max) / 2,
@@ -117,7 +158,6 @@ function Analysis() {
         total_sessions: sessionsData.length,
         total_calories: sessionsData.reduce((sum: number, s: TrainingSession) => sum + (s.metrics?.calories_burned || 0), 0),
       })
-      setTrends(trendsData)
 
       // 根据用户水平生成分析建议
       const analysisConfig = {

@@ -37,28 +37,33 @@ function Dashboard() {
   }, [user])
 
   const fetchData = async () => {
+    const username = user?.username || 'demo1'
+    const isDemo = ['demo1', 'demo2', 'demo3'].includes(username.toLowerCase())
+
+    // 演示模式直接使用演示数据，不调用API
+    if (isDemo) {
+      setTrends(getRecentTrends(username, 7))
+      setStats(calculateStats(username))
+      setLoading(false)
+      return
+    }
+
+    // 非演示模式，调用API
     try {
       const [statsRes, trendsRes]: any[] = await Promise.all([
         dashboardApi.getStats(),
         trainingApi.getTrends(7),
       ])
 
-      const username = user?.username || 'demo1'
-
-      // 如果没有API数据，使用统一的演示数据生成函数
       if (!trendsRes.data || trendsRes.data.length === 0) {
         setTrends(getRecentTrends(username, 7))
       } else {
         setTrends(trendsRes.data)
       }
 
-      // 使用API数据或统一的统计数据生成函数
       setStats(statsRes.data || calculateStats(username))
     } catch (err) {
       console.error('获取数据失败', err)
-
-      // API失败时使用统一的演示数据生成函数
-      const username = user?.username || 'demo1'
       setTrends(getRecentTrends(username, 7))
       setStats(calculateStats(username))
     } finally {
