@@ -27,112 +27,17 @@ import {
 import { Radar, Pie, Heatmap, Column, Area, Gauge, DualAxes, Scatter } from '@ant-design/plots'
 import { trainingApi } from '../services/api'
 import { useAuthStore } from '../stores/authStore'
-import { getUserLevelConfig, generateDateRange, shouldTrainOnDay, generateTrainingSession } from '../utils/demoData'
+import { getUserLevelConfig, generateTrendData, generateSessionList, TrendData as DemoTrendData, TrainingSession as DemoTrainingSession } from '../utils/demoData'
 import dayjs from 'dayjs'
 
 const { RangePicker } = DatePicker
 
-interface TrainingSession {
-  id: string
-  start_time: string
-  duration_seconds: number
-  metrics: {
-    hit_rate: number
-    reaction_time: number
-    accuracy: number
-    fatigue_level: number
-    calories_burned: number
-  }
-  training_mode: string
-}
+// 使用 demoData.ts 中的 TrainingSession 类型
+type TrainingSession = DemoTrainingSession
+type TrendData = DemoTrendData
+// 使用 demoData.ts 中的 generateSessionList
 
-// 生成演示数据（10.1 - 12.12，根据用户水平）
-const generateDemoData = (username?: string) => {
-  const sessions: TrainingSession[] = []
-  const config = getUserLevelConfig(username)
-  const dates = generateDateRange()
-  const totalDays = dates.length
-
-  dates.forEach((date, index) => {
-    // 判断当天是否训练
-    if (shouldTrainOnDay(date, config.sessionsPerWeek)) {
-      const metrics = generateTrainingSession(date, index, totalDays, config)
-      const hour = 14 + Math.floor(Math.random() * 6) // 14:00 - 19:00
-
-      sessions.push({
-        id: `session-${date.format('YYYYMMDD')}-${hour}`,
-        start_time: date.hour(hour).format(),
-        duration_seconds: 1200 + Math.floor(Math.random() * 2400),
-        metrics,
-        training_mode: ['standard', 'intensive', 'recovery'][Math.floor(Math.random() * 3)],
-      })
-    }
-  })
-
-  return sessions.reverse() // 最新的在前
-}
-
-interface TrendData {
-  date: string
-  avg_hit_rate: number
-  avg_reaction_time: number
-  sessions: number
-  accuracy: number
-  calories: number
-}
-
-const generateTrends = (username?: string): TrendData[] => {
-  const trends: TrendData[] = []
-  const config = getUserLevelConfig(username)
-  const dates = generateDateRange()
-  const totalDays = dates.length
-
-  dates.forEach((date, index) => {
-    // 当天可能有多次训练，汇总统计
-    let daySessions = 0
-    let totalHitRate = 0
-    let totalReactionTime = 0
-    let totalAccuracy = 0
-    let totalCalories = 0
-
-    // 随机生成 0-2 次训练
-    const sessionsCount = shouldTrainOnDay(date, config.sessionsPerWeek)
-      ? Math.floor(Math.random() * 2) + 1
-      : 0
-
-    for (let i = 0; i < sessionsCount; i++) {
-      const metrics = generateTrainingSession(date, index, totalDays, config)
-      totalHitRate += metrics.hit_rate
-      totalReactionTime += metrics.reaction_time
-      totalAccuracy += metrics.accuracy
-      totalCalories += metrics.calories_burned
-      daySessions++
-    }
-
-    if (daySessions > 0) {
-      trends.push({
-        date: date.format('MM-DD'),
-        avg_hit_rate: totalHitRate / daySessions,
-        avg_reaction_time: totalReactionTime / daySessions,
-        sessions: daySessions,
-        accuracy: totalAccuracy / daySessions,
-        calories: totalCalories,
-      })
-    } else {
-      // 没有训练的日子
-      trends.push({
-        date: date.format('MM-DD'),
-        avg_hit_rate: 0,
-        avg_reaction_time: 0,
-        sessions: 0,
-        accuracy: 0,
-        calories: 0,
-      })
-    }
-  })
-
-  return trends
-}
+// 使用 demoData.ts 中的 TrendData 和 generateTrendData
 
 const generateHeatmapData = () => {
   const data = []
@@ -177,7 +82,7 @@ function Analysis() {
   const [loading, setLoading] = useState(true)
   const [sessions, setSessions] = useState<TrainingSession[]>([])
   const [stats, setStats] = useState<any>(null)
-  const [trends, setTrends] = useState<any[]>([])
+  const [trends, setTrends] = useState<TrendData[]>([])
   const [analysis, setAnalysis] = useState<any>(null)
   const [viewMode, setViewMode] = useState<string>('overview')
   const [timeRange, setTimeRange] = useState<string>('30')
@@ -197,8 +102,8 @@ function Analysis() {
 
       // 使用API数据或演示数据（根据用户水平生成）
       const username = user?.username || 'demo1'
-      const sessionsData = sessionsRes.data?.length > 0 ? sessionsRes.data : generateDemoData(username)
-      const trendsData = trendsRes.data?.length > 0 ? trendsRes.data : generateTrends(username)
+      const sessionsData = sessionsRes.data?.length > 0 ? sessionsRes.data : generateSessionList(username)
+      const trendsData = trendsRes.data?.length > 0 ? trendsRes.data : generateTrendData(username)
       const config = getUserLevelConfig(username)
 
       setSessions(sessionsData)
@@ -258,8 +163,8 @@ function Analysis() {
       console.error('获取数据失败', err)
       // 使用演示数据
       const username = user?.username || 'demo1'
-      const sessionsData = generateDemoData(username)
-      const trendsData = generateTrends(username)
+      const sessionsData = generateSessionList(username)
+      const trendsData = generateTrendData(username)
       const config = getUserLevelConfig(username)
 
       setSessions(sessionsData)

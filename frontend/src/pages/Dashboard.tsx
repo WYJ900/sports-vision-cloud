@@ -19,23 +19,11 @@ import {
 import { Gauge, Area, Radar, Pie, DualAxes } from '@ant-design/plots'
 import { dashboardApi, trainingApi } from '../services/api'
 import { useAuthStore } from '../stores/authStore'
-import { getUserLevelConfig, generateDateRange, shouldTrainOnDay, generateTrainingSession } from '../utils/demoData'
+import { getRecentTrends, calculateStats, TrendData as DemoTrendData, DashboardStats as DemoStats } from '../utils/demoData'
 
-interface DashboardStats {
-  total_users: number
-  active_devices: number
-  today_sessions: number
-  avg_hit_rate: number
-  avg_reaction_time: number
-  total_training_hours: number
-}
-
-interface TrendData {
-  date: string
-  avg_hit_rate: number
-  avg_reaction_time: number
-  sessions: number
-}
+// 使用 demoData 导出的类型
+type DashboardStats = DemoStats
+type TrendData = DemoTrendData
 
 function Dashboard() {
   const { token } = theme.useToken()
@@ -56,89 +44,23 @@ function Dashboard() {
       ])
 
       const username = user?.username || 'demo1'
-      const config = getUserLevelConfig(username)
 
-      // 如果没有API数据，生成最近7天的演示数据
+      // 如果没有API数据，使用统一的演示数据生成函数
       if (!trendsRes.data || trendsRes.data.length === 0) {
-        const last7Days = generateDateRange().slice(-7)
-        const generatedTrends = last7Days.map((date, index) => {
-          let daySessions = 0
-          let totalHitRate = 0
-          let totalReactionTime = 0
-
-          const sessionsCount = shouldTrainOnDay(date, config.sessionsPerWeek)
-            ? Math.floor(Math.random() * 2) + 1
-            : 0
-
-          for (let i = 0; i < sessionsCount; i++) {
-            const metrics = generateTrainingSession(date, 66 + index, 73, config)
-            totalHitRate += metrics.hit_rate
-            totalReactionTime += metrics.reaction_time
-            daySessions++
-          }
-
-          return {
-            date: date.format('MM-DD'),
-            avg_hit_rate: daySessions > 0 ? totalHitRate / daySessions : 0,
-            avg_reaction_time: daySessions > 0 ? totalReactionTime / daySessions : 0,
-            sessions: daySessions,
-          }
-        })
-        setTrends(generatedTrends)
+        setTrends(getRecentTrends(username, 7))
       } else {
         setTrends(trendsRes.data)
       }
 
-      // 使用配置数据或生成统计数据
-      setStats(statsRes.data || {
-        total_users: 1250,
-        active_devices: 2,
-        today_sessions: Math.floor(Math.random() * 3) + 1,
-        avg_hit_rate: (config.hitRate.min + config.hitRate.max) / 2 + Math.random() * 5 - 2.5,
-        avg_reaction_time: (config.reactionTime.min + config.reactionTime.max) / 2 + Math.random() * 20 - 10,
-        total_training_hours: config.sessionsPerWeek.min * 12 * 0.6, // 约12周数据
-      })
+      // 使用API数据或统一的统计数据生成函数
+      setStats(statsRes.data || calculateStats(username))
     } catch (err) {
       console.error('获取数据失败', err)
 
-      // API失败时生成演示数据
+      // API失败时使用统一的演示数据生成函数
       const username = user?.username || 'demo1'
-      const config = getUserLevelConfig(username)
-
-      const last7Days = generateDateRange().slice(-7)
-      const generatedTrends = last7Days.map((date, index) => {
-        let daySessions = 0
-        let totalHitRate = 0
-        let totalReactionTime = 0
-
-        const sessionsCount = shouldTrainOnDay(date, config.sessionsPerWeek)
-          ? Math.floor(Math.random() * 2) + 1
-          : 0
-
-        for (let i = 0; i < sessionsCount; i++) {
-          const metrics = generateTrainingSession(date, 66 + index, 73, config)
-          totalHitRate += metrics.hit_rate
-          totalReactionTime += metrics.reaction_time
-          daySessions++
-        }
-
-        return {
-          date: date.format('MM-DD'),
-          avg_hit_rate: daySessions > 0 ? totalHitRate / daySessions : 0,
-          avg_reaction_time: daySessions > 0 ? totalReactionTime / daySessions : 0,
-          sessions: daySessions,
-        }
-      })
-      setTrends(generatedTrends)
-
-      setStats({
-        total_users: 1250,
-        active_devices: 2,
-        today_sessions: Math.floor(Math.random() * 3) + 1,
-        avg_hit_rate: (config.hitRate.min + config.hitRate.max) / 2 + Math.random() * 5 - 2.5,
-        avg_reaction_time: (config.reactionTime.min + config.reactionTime.max) / 2 + Math.random() * 20 - 10,
-        total_training_hours: config.sessionsPerWeek.min * 12 * 0.6,
-      })
+      setTrends(getRecentTrends(username, 7))
+      setStats(calculateStats(username))
     } finally {
       setLoading(false)
     }
