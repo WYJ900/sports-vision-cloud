@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react'
-import { Row, Col, Card, Table, Tag, Space, DatePicker, Spin, List, Statistic, Progress, Segmented, Badge, Divider, Timeline, Select, Button } from 'antd'
+import { Row, Col, Card, Table, Tag, Space, DatePicker, Spin, List, Statistic, Progress, Segmented, Badge, Divider, Timeline, Select, Button, theme } from 'antd'
 import {
   TrophyOutlined,
   WarningOutlined,
@@ -120,6 +120,7 @@ const generateScatterData = () => {
 }
 
 function Analysis() {
+  const { token: themeToken } = theme.useToken()
   const [loading, setLoading] = useState(true)
   const [sessions, setSessions] = useState<TrainingSession[]>([])
   const [stats, setStats] = useState<any>(null)
@@ -433,19 +434,52 @@ function Analysis() {
               <Card title={<Space><ExperimentOutlined style={{ color: '#722ed1' }} />AI深度分析报告</Space>} className="dashboard-card" extra={<Tag color="purple">基于{sessions.length}次训练数据</Tag>}>
                 <Row gutter={24}>
                   <Col xs={24} md={12}>
-                    <h4 style={{ color: '#52c41a' }}><TrophyOutlined /> 核心优势</h4>
-                    <Timeline items={(analysis?.strengths || []).map((item: string) => ({ color: 'green', children: <Tag color="green" style={{ fontSize: 13 }}>{item}</Tag> }))} />
+                    <h4 style={{ color: '#52c41a', fontWeight: 600 }}><TrophyOutlined /> 核心优势</h4>
+                    <Timeline items={(analysis?.strengths || []).map((item: string) => ({
+                      color: 'green',
+                      children: (
+                        <div style={{
+                          backgroundColor: '#f6ffed',
+                          border: '1px solid #b7eb8f',
+                          padding: '8px 12px',
+                          borderRadius: 6,
+                          color: '#389e0d',
+                          fontSize: 13,
+                          fontWeight: 500
+                        }}>
+                          {item}
+                        </div>
+                      )
+                    }))} />
                   </Col>
                   <Col xs={24} md={12}>
-                    <h4 style={{ color: '#faad14' }}><WarningOutlined /> 提升空间</h4>
-                    <Timeline items={(analysis?.weaknesses || []).map((item: string) => ({ color: 'orange', children: <Tag color="orange" style={{ fontSize: 13 }}>{item}</Tag> }))} />
+                    <h4 style={{ color: '#fa8c16', fontWeight: 600 }}><WarningOutlined /> 提升空间</h4>
+                    <Timeline items={(analysis?.weaknesses || []).map((item: string) => ({
+                      color: 'orange',
+                      children: (
+                        <div style={{
+                          backgroundColor: '#fff7e6',
+                          border: '1px solid #ffd591',
+                          padding: '8px 12px',
+                          borderRadius: 6,
+                          color: '#d46b08',
+                          fontSize: 13,
+                          fontWeight: 500
+                        }}>
+                          {item}
+                        </div>
+                      )
+                    }))} />
                   </Col>
                 </Row>
                 <Divider />
-                <h4 style={{ color: '#1890ff' }}><BulbOutlined /> 个性化建议</h4>
+                <h4 style={{ color: '#1890ff', fontWeight: 600 }}><BulbOutlined /> 个性化建议</h4>
                 <List size="small" dataSource={analysis?.improvement_suggestions || []} renderItem={(item: string, idx: number) => (
-                  <List.Item>
-                    <Space><Badge count={idx + 1} style={{ backgroundColor: '#1890ff' }} /><span style={{ fontSize: 13 }}>{item}</span></Space>
+                  <List.Item style={{ padding: '12px 0' }}>
+                    <Space>
+                      <Badge count={idx + 1} style={{ backgroundColor: '#1890ff' }} />
+                      <span style={{ fontSize: 13, color: 'inherit', lineHeight: 1.6 }}>{item}</span>
+                    </Space>
                   </List.Item>
                 )} />
               </Card>
@@ -506,9 +540,21 @@ function Analysis() {
               <Heatmap {...heatmapConfig} />
               <Divider />
               <Row gutter={16}>
-                <Col span={8}><Card size="small" style={{ background: '#f6ffed', border: 'none' }}><Statistic title="最佳时段" value="16:00-18:00" valueStyle={{ color: '#52c41a', fontSize: 18 }} /></Card></Col>
-                <Col span={8}><Card size="small" style={{ background: '#fff7e6', border: 'none' }}><Statistic title="高峰日" value="周六" valueStyle={{ color: '#faad14', fontSize: 18 }} /></Card></Col>
-                <Col span={8}><Card size="small" style={{ background: '#f0f5ff', border: 'none' }}><Statistic title="平均时长" value="45分钟" valueStyle={{ color: '#1890ff', fontSize: 18 }} /></Card></Col>
+                <Col span={8}>
+                  <Card size="small" style={{ background: themeToken.colorBgContainer, border: `1px solid #52c41a30` }}>
+                    <Statistic title="最佳时段" value="16:00-18:00" valueStyle={{ color: '#52c41a', fontSize: 18 }} />
+                  </Card>
+                </Col>
+                <Col span={8}>
+                  <Card size="small" style={{ background: themeToken.colorBgContainer, border: `1px solid #faad1430` }}>
+                    <Statistic title="高峰日" value="周六" valueStyle={{ color: '#faad14', fontSize: 18 }} />
+                  </Card>
+                </Col>
+                <Col span={8}>
+                  <Card size="small" style={{ background: themeToken.colorBgContainer, border: `1px solid #1890ff30` }}>
+                    <Statistic title="平均时长" value="45分钟" valueStyle={{ color: '#1890ff', fontSize: 18 }} />
+                  </Card>
+                </Col>
               </Row>
             </Card>
           </Col>
@@ -523,23 +569,56 @@ function Analysis() {
               <Row gutter={[24, 24]}>
                 {bodyPartData.map((part, idx) => (
                   <Col xs={24} sm={12} lg={8} key={idx}>
-                    <Card size="small" style={{ background: idx % 2 === 0 ? '#f6ffed' : '#f0f5ff', border: 'none' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                        <span style={{ fontWeight: 600 }}>{part.part}</span>
-                        <Tag color={part.change > 5 ? 'green' : 'blue'}><ArrowUpOutlined /> +{part.change}%</Tag>
+                    <Card
+                      size="small"
+                      style={{
+                        background: idx % 2 === 0 ? '#f6ffed' : '#e6f7ff',
+                        border: idx % 2 === 0 ? '1px solid #b7eb8f' : '1px solid #91d5ff'
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, alignItems: 'center' }}>
+                        <span style={{ fontWeight: 600, fontSize: 14, color: '#262626' }}>{part.part}</span>
+                        <Tag
+                          color={part.change > 5 ? 'success' : 'processing'}
+                          style={{ fontWeight: 500 }}
+                        >
+                          <ArrowUpOutlined /> +{part.change}%
+                        </Tag>
                       </div>
-                      <Progress percent={part.current} success={{ percent: part.target }} strokeColor={part.current >= part.target ? '#52c41a' : '#1890ff'} />
-                      <div style={{ fontSize: 12, color: '#8c8c8c', marginTop: 4 }}>当前: {part.current}% | 目标: {part.target}%</div>
+                      <Progress
+                        percent={part.current}
+                        success={{ percent: part.target }}
+                        strokeColor={part.current >= part.target ? '#52c41a' : '#1890ff'}
+                        strokeWidth={10}
+                      />
+                      <div style={{ fontSize: 12, color: '#595959', marginTop: 6, fontWeight: 500 }}>
+                        当前: <span style={{ color: '#1890ff', fontWeight: 600 }}>{part.current}%</span> |
+                        目标: <span style={{ color: '#52c41a', fontWeight: 600 }}>{part.target}%</span>
+                      </div>
                     </Card>
                   </Col>
                 ))}
               </Row>
               <Divider />
-              <Card title="训练重点建议" size="small" style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', border: 'none' }}>
-                <div style={{ color: '#fff', padding: 8 }}>
-                  <p><strong>本周重点：</strong>手腕力量训练 - 当前与目标差距最大</p>
-                  <p><strong>建议动作：</strong>手腕旋转练习、握力器训练、反手挑球专项</p>
-                  <p><strong>建议频率：</strong>每次训练前进行5分钟专项热身</p>
+              <Card
+                title={<span style={{ color: '#fff', fontWeight: 600 }}>💪 训练重点建议</span>}
+                size="small"
+                style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', border: 'none' }}
+                headStyle={{ border: 'none' }}
+              >
+                <div style={{ color: '#fff', padding: 8, fontSize: 13, lineHeight: 2 }}>
+                  <p style={{ marginBottom: 12 }}>
+                    <strong style={{ fontSize: 14 }}>本周重点：</strong>
+                    <span style={{ opacity: 0.95 }}>手腕力量训练 - 当前与目标差距最大</span>
+                  </p>
+                  <p style={{ marginBottom: 12 }}>
+                    <strong style={{ fontSize: 14 }}>建议动作：</strong>
+                    <span style={{ opacity: 0.95 }}>手腕旋转练习、握力器训练、反手挑球专项</span>
+                  </p>
+                  <p style={{ marginBottom: 0 }}>
+                    <strong style={{ fontSize: 14 }}>建议频率：</strong>
+                    <span style={{ opacity: 0.95 }}>每次训练前进行5分钟专项热身</span>
+                  </p>
                 </div>
               </Card>
             </Card>

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Row, Col, Card, Statistic, Progress, List, Tag, Spin, Badge, Space, Divider } from 'antd'
+import { Row, Col, Card, Statistic, Progress, List, Tag, Spin, Badge, Space, Divider, theme } from 'antd'
 import {
   ThunderboltOutlined,
   ClockCircleOutlined,
@@ -36,6 +36,7 @@ interface TrendData {
 }
 
 function Dashboard() {
+  const { token } = theme.useToken()
   const [loading, setLoading] = useState(true)
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [trends, setTrends] = useState<TrendData[]>([])
@@ -306,17 +307,24 @@ function Dashboard() {
           <Card title="能力象限分析" className="dashboard-card">
             <Row gutter={[12, 12]}>
               {[
-                { icon: <HeartOutlined />, name: '体能', level: '优秀', bg: '#f0f5ff', color: '#1890ff' },
-                { icon: <ThunderboltOutlined />, name: '速度', level: '良好', bg: '#f6ffed', color: '#52c41a' },
-                { icon: <AimOutlined />, name: '精准', level: '优秀', bg: '#fff7e6', color: '#faad14' },
-                { icon: <FireOutlined />, name: '耐力', level: '良好', bg: '#fff0f6', color: '#eb2f96' },
+                { icon: <HeartOutlined />, name: '体能', level: '优秀', color: '#1890ff' },
+                { icon: <ThunderboltOutlined />, name: '速度', level: '良好', color: '#52c41a' },
+                { icon: <AimOutlined />, name: '精准', level: '优秀', color: '#faad14' },
+                { icon: <FireOutlined />, name: '耐力', level: '良好', color: '#eb2f96' },
               ].map((item, idx) => (
                 <Col span={12} key={idx}>
-                  <Card size="small" style={{ background: item.bg, border: 'none' }}>
+                  <Card
+                    size="small"
+                    style={{
+                      background: token.colorBgContainer,
+                      border: `1px solid ${item.color}30`,
+                      borderRadius: 8
+                    }}
+                  >
                     <div style={{ textAlign: 'center' }}>
                       <span style={{ fontSize: 24, color: item.color }}>{item.icon}</span>
-                      <div style={{ marginTop: 8, fontWeight: 600 }}>{item.name}</div>
-                      <div style={{ color: item.color, fontSize: 18 }}>{item.level}</div>
+                      <div style={{ marginTop: 8, fontWeight: 600, color: token.colorText }}>{item.name}</div>
+                      <div style={{ color: item.color, fontSize: 18, fontWeight: 600 }}>{item.level}</div>
                     </div>
                   </Card>
                 </Col>
@@ -327,11 +335,25 @@ function Dashboard() {
         <Col xs={24} lg={8}>
           <Card title="最近动态" className="dashboard-card" bodyStyle={{ padding: 0, maxHeight: 320, overflow: 'auto' }}>
             <List size="small" dataSource={recentActivities} renderItem={(item) => (
-              <List.Item style={{ padding: '12px 16px' }}>
+              <List.Item style={{ padding: '12px 16px', borderBottom: `1px solid ${token.colorBorderSecondary}` }}>
                 <List.Item.Meta
-                  avatar={<div style={{ width: 32, height: 32, borderRadius: '50%', background: item.type === 'success' ? '#f6ffed' : item.type === 'warning' ? '#fff7e6' : '#f0f5ff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, color: item.type === 'success' ? '#52c41a' : item.type === 'warning' ? '#faad14' : '#1890ff' }}>{item.icon}</div>}
-                  title={<span style={{ fontSize: 13 }}>{item.title}</span>}
-                  description={<span style={{ fontSize: 11, color: '#bfbfbf' }}><ClockCircleOutlined /> {item.time}</span>}
+                  avatar={
+                    <div style={{
+                      width: 32,
+                      height: 32,
+                      borderRadius: '50%',
+                      background: item.type === 'success' ? '#52c41a20' : item.type === 'warning' ? '#faad1420' : '#1890ff20',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: 16,
+                      color: item.type === 'success' ? '#52c41a' : item.type === 'warning' ? '#faad14' : '#1890ff'
+                    }}>
+                      {item.icon}
+                    </div>
+                  }
+                  title={<span style={{ fontSize: 13, color: token.colorText }}>{item.title}</span>}
+                  description={<span style={{ fontSize: 11, color: token.colorTextSecondary }}><ClockCircleOutlined /> {item.time}</span>}
                 />
                 <Tag color={item.type} style={{ fontSize: 11 }}>{item.extra}</Tag>
               </List.Item>
@@ -348,12 +370,18 @@ function Dashboard() {
             { icon: <ClockCircleOutlined style={{ fontSize: 20, color: '#4facfe' }} />, title: '最佳训练时段', desc: '基于历史数据，您在下午4-6点表现最佳', borderColor: '#4facfe' },
           ].map((item, idx) => (
             <Col xs={24} md={8} key={idx}>
-              <div style={{ padding: 16, background: '#fafafa', borderRadius: 8, border: `1px solid ${item.borderColor}20`, borderLeft: `3px solid ${item.borderColor}` }}>
+              <div style={{
+                padding: 16,
+                background: token.colorBgContainer,
+                borderRadius: 8,
+                border: `1px solid ${item.borderColor}30`,
+                borderLeft: `3px solid ${item.borderColor}`
+              }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                   {item.icon}
-                  <span style={{ fontSize: 15, fontWeight: 600, color: '#262626' }}>{item.title}</span>
+                  <span style={{ fontSize: 15, fontWeight: 600, color: token.colorText }}>{item.title}</span>
                 </div>
-                <div style={{ fontSize: 13, color: '#595959', lineHeight: 1.6 }}>{item.desc}</div>
+                <div style={{ fontSize: 13, color: token.colorTextSecondary, lineHeight: 1.6 }}>{item.desc}</div>
               </div>
             </Col>
           ))}
