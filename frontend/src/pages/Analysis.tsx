@@ -72,8 +72,17 @@ const generateDemoData = (username?: string) => {
   return sessions.reverse() // 最新的在前
 }
 
-const generateTrends = (username?: string) => {
-  const trends = []
+interface TrendData {
+  date: string
+  avg_hit_rate: number
+  avg_reaction_time: number
+  sessions: number
+  accuracy: number
+  calories: number
+}
+
+const generateTrends = (username?: string): TrendData[] => {
+  const trends: TrendData[] = []
   const config = getUserLevelConfig(username)
   const dates = generateDateRange()
   const totalDays = dates.length
@@ -199,9 +208,9 @@ function Analysis() {
         avg_hit_rate: (config.hitRate.min + config.hitRate.max) / 2,
         avg_reaction_time: (config.reactionTime.min + config.reactionTime.max) / 2,
         avg_accuracy: (config.accuracy.min + config.accuracy.max) / 2,
-        total_duration: sessionsData.reduce((sum, s) => sum + s.duration_seconds, 0),
+        total_duration: sessionsData.reduce((sum: number, s: TrainingSession) => sum + s.duration_seconds, 0),
         total_sessions: sessionsData.length,
-        total_calories: sessionsData.reduce((sum, s) => sum + (s.metrics?.calories_burned || 0), 0),
+        total_calories: sessionsData.reduce((sum: number, s: TrainingSession) => sum + (s.metrics?.calories_burned || 0), 0),
       })
       setTrends(trendsData)
 
@@ -259,9 +268,9 @@ function Analysis() {
         avg_hit_rate: (config.hitRate.min + config.hitRate.max) / 2,
         avg_reaction_time: (config.reactionTime.min + config.reactionTime.max) / 2,
         avg_accuracy: (config.accuracy.min + config.accuracy.max) / 2,
-        total_duration: sessionsData.reduce((sum, s) => sum + s.duration_seconds, 0),
+        total_duration: sessionsData.reduce((sum: number, s: TrainingSession) => sum + s.duration_seconds, 0),
         total_sessions: sessionsData.length,
-        total_calories: sessionsData.reduce((sum, s) => sum + (s.metrics?.calories_burned || 0), 0),
+        total_calories: sessionsData.reduce((sum: number, s: TrainingSession) => sum + (s.metrics?.calories_burned || 0), 0),
       })
 
       const analysisConfig = {

@@ -20,7 +20,6 @@ import { Gauge, Area, Radar, Pie, DualAxes } from '@ant-design/plots'
 import { dashboardApi, trainingApi } from '../services/api'
 import { useAuthStore } from '../stores/authStore'
 import { getUserLevelConfig, generateDateRange, shouldTrainOnDay, generateTrainingSession } from '../utils/demoData'
-import dayjs from 'dayjs'
 
 interface DashboardStats {
   total_users: number

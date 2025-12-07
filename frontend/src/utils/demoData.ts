@@ -61,8 +61,7 @@ export const generateDateRange = () => {
 // 判断当天是否有训练（根据每周训练频率）
 export const shouldTrainOnDay = (date: dayjs.Dayjs, sessionsPerWeek: { min: number, max: number }) => {
   const dayOfWeek = date.day()
-  const weekProgress = date.week() % 4 // 4周一个周期
-
+  
   // 周末训练概率更高
   if (dayOfWeek === 0 || dayOfWeek === 6) {
     return Math.random() < 0.7
@@ -77,7 +76,7 @@ export const shouldTrainOnDay = (date: dayjs.Dayjs, sessionsPerWeek: { min: numb
 
 // 生成单次训练数据
 export const generateTrainingSession = (
-  date: dayjs.Dayjs,
+  _date: dayjs.Dayjs,
   dayIndex: number,
   totalDays: number,
   config: ReturnType<typeof getUserLevelConfig>
