@@ -30,7 +30,11 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response.data,
   (error) => {
-    if (error.response?.status === 401) {
+    // 演示模式下不触发登出，让页面使用本地演示数据
+    const token = useAuthStore.getState().token
+    const isDemo = token === 'demo_token'
+
+    if (error.response?.status === 401 && !isDemo) {
       useAuthStore.getState().logout()
       window.location.href = '/login'
     }
