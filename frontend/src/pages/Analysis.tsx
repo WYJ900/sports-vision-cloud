@@ -4,13 +4,13 @@ import {
   TrophyOutlined,
   WarningOutlined,
   BulbOutlined,
-  
-  
+
+
   FireOutlined,
   ThunderboltOutlined,
   AimOutlined,
   ClockCircleOutlined,
-  
+
   ExperimentOutlined,
   RadarChartOutlined,
   LineChartOutlined,
@@ -26,6 +26,8 @@ import {
 } from '@ant-design/icons'
 import { Radar, Pie, Heatmap, Column, Area, Gauge, DualAxes, Scatter } from '@ant-design/plots'
 import { trainingApi } from '../services/api'
+import { useAuthStore } from '../stores/authStore'
+import { getUserLevelConfig, generateDateRange, shouldTrainOnDay, generateTrainingSession } from '../utils/demoData'
 import dayjs from 'dayjs'
 
 const { RangePicker } = DatePicker
@@ -44,41 +46,82 @@ interface TrainingSession {
   training_mode: string
 }
 
-// 生成演示数据
-const generateDemoData = () => {
+// 生成演示数据（10.1 - 12.12，根据用户水平）
+const generateDemoData = (username?: string) => {
   const sessions: TrainingSession[] = []
-  const now = dayjs()
-  for (let i = 0; i < 30; i++) {
-    sessions.push({
-      id: `session-${i}`,
-      start_time: now.subtract(i, 'day').hour(14 + Math.floor(Math.random() * 6)).format(),
-      duration_seconds: 1200 + Math.floor(Math.random() * 2400),
-      metrics: {
-        hit_rate: 55 + Math.random() * 35,
-        reaction_time: 280 + Math.random() * 200,
-        accuracy: 60 + Math.random() * 35,
-        fatigue_level: 20 + Math.random() * 60,
-        calories_burned: 150 + Math.random() * 350,
-      },
-      training_mode: ['standard', 'intensive', 'recovery'][Math.floor(Math.random() * 3)],
-    })
-  }
-  return sessions
+  const config = getUserLevelConfig(username)
+  const dates = generateDateRange()
+  const totalDays = dates.length
+
+  dates.forEach((date, index) => {
+    // 判断当天是否训练
+    if (shouldTrainOnDay(date, config.sessionsPerWeek)) {
+      const metrics = generateTrainingSession(date, index, totalDays, config)
+      const hour = 14 + Math.floor(Math.random() * 6) // 14:00 - 19:00
+
+      sessions.push({
+        id: `session-${date.format('YYYYMMDD')}-${hour}`,
+        start_time: date.hour(hour).format(),
+        duration_seconds: 1200 + Math.floor(Math.random() * 2400),
+        metrics,
+        training_mode: ['standard', 'intensive', 'recovery'][Math.floor(Math.random() * 3)],
+      })
+    }
+  })
+
+  return sessions.reverse() // 最新的在前
 }
 
-const generateTrends = () => {
+const generateTrends = (username?: string) => {
   const trends = []
-  const now = dayjs()
-  for (let i = 29; i >= 0; i--) {
-    trends.push({
-      date: now.subtract(i, 'day').format('MM-DD'),
-      avg_hit_rate: 55 + Math.random() * 30 + (29 - i) * 0.3,
-      avg_reaction_time: 450 - Math.random() * 100 - (29 - i) * 2,
-      sessions: Math.floor(1 + Math.random() * 3),
-      accuracy: 60 + Math.random() * 25 + (29 - i) * 0.2,
-      calories: 200 + Math.random() * 300,
-    })
-  }
+  const config = getUserLevelConfig(username)
+  const dates = generateDateRange()
+  const totalDays = dates.length
+
+  dates.forEach((date, index) => {
+    // 当天可能有多次训练，汇总统计
+    let daySessions = 0
+    let totalHitRate = 0
+    let totalReactionTime = 0
+    let totalAccuracy = 0
+    let totalCalories = 0
+
+    // 随机生成 0-2 次训练
+    const sessionsCount = shouldTrainOnDay(date, config.sessionsPerWeek)
+      ? Math.floor(Math.random() * 2) + 1
+      : 0
+
+    for (let i = 0; i < sessionsCount; i++) {
+      const metrics = generateTrainingSession(date, index, totalDays, config)
+      totalHitRate += metrics.hit_rate
+      totalReactionTime += metrics.reaction_time
+      totalAccuracy += metrics.accuracy
+      totalCalories += metrics.calories_burned
+      daySessions++
+    }
+
+    if (daySessions > 0) {
+      trends.push({
+        date: date.format('MM-DD'),
+        avg_hit_rate: totalHitRate / daySessions,
+        avg_reaction_time: totalReactionTime / daySessions,
+        sessions: daySessions,
+        accuracy: totalAccuracy / daySessions,
+        calories: totalCalories,
+      })
+    } else {
+      // 没有训练的日子
+      trends.push({
+        date: date.format('MM-DD'),
+        avg_hit_rate: 0,
+        avg_reaction_time: 0,
+        sessions: 0,
+        accuracy: 0,
+        calories: 0,
+      })
+    }
+  })
+
   return trends
 }
 
@@ -121,6 +164,7 @@ const generateScatterData = () => {
 
 function Analysis() {
   const { token: themeToken } = theme.useToken()
+  const { user } = useAuthStore()
   const [loading, setLoading] = useState(true)
   const [sessions, setSessions] = useState<TrainingSession[]>([])
   const [stats, setStats] = useState<any>(null)
@@ -131,7 +175,7 @@ function Analysis() {
 
   useEffect(() => {
     fetchData()
-  }, [])
+  }, [user])
 
   const fetchData = async () => {
     setLoading(true)
@@ -142,51 +186,116 @@ function Analysis() {
         trainingApi.getTrends(30),
       ])
 
-      // 使用API数据或演示数据
-      const sessionsData = sessionsRes.data?.length > 0 ? sessionsRes.data : generateDemoData()
-      const trendsData = trendsRes.data?.length > 0 ? trendsRes.data : generateTrends()
+      // 使用API数据或演示数据（根据用户水平生成）
+      const username = user?.username || 'demo1'
+      const sessionsData = sessionsRes.data?.length > 0 ? sessionsRes.data : generateDemoData(username)
+      const trendsData = trendsRes.data?.length > 0 ? trendsRes.data : generateTrends(username)
+      const config = getUserLevelConfig(username)
 
       setSessions(sessionsData)
+
+      // 根据用户水平设置统计数据
       setStats(statsRes.data || {
-        avg_hit_rate: 72.5,
-        avg_reaction_time: 385,
-        avg_accuracy: 78.3,
-        total_duration: 18000,
-        total_sessions: 25,
-        total_calories: 8500,
+        avg_hit_rate: (config.hitRate.min + config.hitRate.max) / 2,
+        avg_reaction_time: (config.reactionTime.min + config.reactionTime.max) / 2,
+        avg_accuracy: (config.accuracy.min + config.accuracy.max) / 2,
+        total_duration: sessionsData.reduce((sum, s) => sum + s.duration_seconds, 0),
+        total_sessions: sessionsData.length,
+        total_calories: sessionsData.reduce((sum, s) => sum + (s.metrics?.calories_burned || 0), 0),
       })
       setTrends(trendsData)
+
+      // 根据用户水平生成分析建议
+      const analysisConfig = {
+        demo1: {
+          strengths: ['训练态度认真', '进步空间大', '基础动作规范'],
+          weaknesses: ['击球稳定性不足', '反应速度偏慢', '体能储备需提升'],
+          improvement_suggestions: [
+            '建议每周训练至少4次，保持稳定频率',
+            '重点练习基础步伐和身体协调性',
+            '加强核心力量训练，提升稳定性',
+            '注意击球节奏，不要急于求成',
+          ],
+        },
+        demo2: {
+          strengths: ['正手击球稳定', '反应速度良好', '体能储备充足', '动作标准度高'],
+          weaknesses: ['反手技术待提升', '移动步伐可优化', '高远球落点分散'],
+          improvement_suggestions: [
+            '建议增加反手专项训练，每周至少3次',
+            '加强下肢力量训练，提升移动速度',
+            '练习高远球落点控制，目标准确率提升10%',
+            '注意训练后拉伸，防止运动损伤',
+          ],
+        },
+        demo3: {
+          strengths: ['技术全面稳定', '反应速度出色', '比赛经验丰富', '心理素质过硬'],
+          weaknesses: ['部分细节可微调', '需保持巅峰状态', '避免过度训练'],
+          improvement_suggestions: [
+            '保持高强度训练频率，每周5-6次',
+            '注重细节优化和战术变化',
+            '加强针对性对抗训练',
+            '合理安排休息，避免运动损伤',
+          ],
+        },
+      }
+
+      const analysisLevel = username as keyof typeof analysisConfig
       setAnalysis({
-        strengths: ['正手击球稳定', '反应速度优秀', '体能储备充足', '动作标准度高'],
-        weaknesses: ['反手技术待提升', '移动步伐偏慢', '高远球落点分散'],
-        improvement_suggestions: [
-          '建议增加反手专项训练，每周至少3次',
-          '加强下肢力量训练，提升移动速度',
-          '练习高远球落点控制，目标准确率提升10%',
-          '注意训练后拉伸，防止运动损伤',
-        ],
-        overall_score: 82,
-        rank_percentile: 15,
+        ...(analysisConfig[analysisLevel] || analysisConfig.demo1),
+        overall_score: config.overallScore,
+        rank_percentile: config.rankPercentile,
       })
     } catch (err) {
       console.error('获取数据失败', err)
       // 使用演示数据
-      setSessions(generateDemoData())
-      setTrends(generateTrends())
+      const username = user?.username || 'demo1'
+      const sessionsData = generateDemoData(username)
+      const trendsData = generateTrends(username)
+      const config = getUserLevelConfig(username)
+
+      setSessions(sessionsData)
+      setTrends(trendsData)
       setStats({
-        avg_hit_rate: 72.5,
-        avg_reaction_time: 385,
-        avg_accuracy: 78.3,
-        total_duration: 18000,
-        total_sessions: 25,
-        total_calories: 8500,
+        avg_hit_rate: (config.hitRate.min + config.hitRate.max) / 2,
+        avg_reaction_time: (config.reactionTime.min + config.reactionTime.max) / 2,
+        avg_accuracy: (config.accuracy.min + config.accuracy.max) / 2,
+        total_duration: sessionsData.reduce((sum, s) => sum + s.duration_seconds, 0),
+        total_sessions: sessionsData.length,
+        total_calories: sessionsData.reduce((sum, s) => sum + (s.metrics?.calories_burned || 0), 0),
       })
+
+      const analysisConfig = {
+        demo1: {
+          strengths: ['训练态度认真', '进步空间大', '基础动作规范'],
+          weaknesses: ['击球稳定性不足', '反应速度偏慢', '体能储备需提升'],
+          improvement_suggestions: [
+            '建议每周训练至少4次，保持稳定频率',
+            '重点练习基础步伐和身体协调性',
+          ],
+        },
+        demo2: {
+          strengths: ['正手击球稳定', '反应速度良好', '体能储备充足'],
+          weaknesses: ['反手技术待提升', '移动步伐可优化'],
+          improvement_suggestions: [
+            '建议增加反手专项训练，每周至少3次',
+            '加强下肢力量训练，提升移动速度',
+          ],
+        },
+        demo3: {
+          strengths: ['技术全面稳定', '反应速度出色', '比赛经验丰富'],
+          weaknesses: ['部分细节可微调', '需保持巅峰状态'],
+          improvement_suggestions: [
+            '保持高强度训练频率，每周5-6次',
+            '注重细节优化和战术变化',
+          ],
+        },
+      }
+
+      const analysisLevel = username as keyof typeof analysisConfig
       setAnalysis({
-        strengths: ['正手击球稳定', '反应速度优秀', '体能储备充足'],
-        weaknesses: ['反手技术待提升', '移动步伐偏慢'],
-        improvement_suggestions: ['建议增加反手专项训练', '加强下肢力量训练'],
-        overall_score: 82,
-        rank_percentile: 15,
+        ...(analysisConfig[analysisLevel] || analysisConfig.demo1),
+        overall_score: config.overallScore,
+        rank_percentile: config.rankPercentile,
       })
     } finally {
       setLoading(false)

@@ -18,6 +18,9 @@ import {
 } from '@ant-design/icons'
 import { Gauge, Area, Radar, Pie, DualAxes } from '@ant-design/plots'
 import { dashboardApi, trainingApi } from '../services/api'
+import { useAuthStore } from '../stores/authStore'
+import { getUserLevelConfig, generateDateRange, shouldTrainOnDay, generateTrainingSession } from '../utils/demoData'
+import dayjs from 'dayjs'
 
 interface DashboardStats {
   total_users: number
@@ -37,13 +40,14 @@ interface TrendData {
 
 function Dashboard() {
   const { token } = theme.useToken()
+  const { user } = useAuthStore()
   const [loading, setLoading] = useState(true)
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [trends, setTrends] = useState<TrendData[]>([])
 
   useEffect(() => {
     fetchData()
-  }, [])
+  }, [user])
 
   const fetchData = async () => {
     try {
@@ -51,8 +55,50 @@ function Dashboard() {
         dashboardApi.getStats(),
         trainingApi.getTrends(7),
       ])
-      setStats(statsRes.data)
-      setTrends(trendsRes.data || [])
+
+      const username = user?.username || 'demo1'
+      const config = getUserLevelConfig(username)
+
+      // 如果没有API数据，生成最近7天的演示数据
+      if (!trendsRes.data || trendsRes.data.length === 0) {
+        const last7Days = generateDateRange().slice(-7)
+        const generatedTrends = last7Days.map((date, index) => {
+          let daySessions = 0
+          let totalHitRate = 0
+          let totalReactionTime = 0
+
+          const sessionsCount = shouldTrainOnDay(date, config.sessionsPerWeek)
+            ? Math.floor(Math.random() * 2) + 1
+            : 0
+
+          for (let i = 0; i < sessionsCount; i++) {
+            const metrics = generateTrainingSession(date, 66 + index, 73, config)
+            totalHitRate += metrics.hit_rate
+            totalReactionTime += metrics.reaction_time
+            daySessions++
+          }
+
+          return {
+            date: date.format('MM-DD'),
+            avg_hit_rate: daySessions > 0 ? totalHitRate / daySessions : 0,
+            avg_reaction_time: daySessions > 0 ? totalReactionTime / daySessions : 0,
+            sessions: daySessions,
+          }
+        })
+        setTrends(generatedTrends)
+      } else {
+        setTrends(trendsRes.data)
+      }
+
+      // 使用配置数据或生成统计数据
+      setStats(statsRes.data || {
+        total_users: 1250,
+        active_devices: 2,
+        today_sessions: Math.floor(Math.random() * 3) + 1,
+        avg_hit_rate: (config.hitRate.min + config.hitRate.max) / 2 + Math.random() * 5 - 2.5,
+        avg_reaction_time: (config.reactionTime.min + config.reactionTime.max) / 2 + Math.random() * 20 - 10,
+        total_training_hours: config.sessionsPerWeek.min * 12 * 0.6, // 约12周数据
+      })
     } catch (err) {
       console.error('获取数据失败', err)
     } finally {
