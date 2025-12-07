@@ -13,6 +13,8 @@ import { Liquid, Gauge } from '@ant-design/plots'
 import { Canvas, useThree } from '@react-three/fiber'
 import { OrbitControls, Line, Text } from '@react-three/drei'
 import { useTrainingStore } from '../stores/trainingStore'
+import { useAuthStore } from '../stores/authStore'
+import { getUserLevelConfig } from '../utils/demoData'
 import { trainingApi, deviceApi } from '../services/api'
 import { wsService } from '../services/websocket'
 import * as THREE from 'three'
@@ -105,6 +107,7 @@ function Floor() {
 }
 
 function Training() {
+  const { user } = useAuthStore()
   const [devices, setDevices] = useState<any[]>([])
   const [selectedDevice, setSelectedDevice] = useState<string>('')
   const [sessionTime, setSessionTime] = useState(0)
@@ -126,13 +129,29 @@ function Training() {
 
   useEffect(() => {
     if (demoMode) {
+      const username = user?.username || 'demo1'
+      const config = getUserLevelConfig(username)
+
       demoTimerRef.current = window.setInterval(() => setDemoFrame((f) => (f + 1) % DEMO_POSE_FRAMES.length), 50)
       const metricsTimer = window.setInterval(() => {
-        updateMetrics({ hitRate: 65 + Math.random() * 20, reactionTime: 350 + Math.random() * 100, accuracy: 75 + Math.random() * 15, fatigueLevel: Math.min(80, 30 + sessionTime / 10), caloriesBurned: sessionTime * 0.15 })
+        // 根据用户水平动态调整实时数据范围
+        const hitRate = config.hitRate.min + Math.random() * (config.hitRate.max - config.hitRate.min)
+        const reactionTime = config.reactionTime.min + Math.random() * (config.reactionTime.max - config.reactionTime.min)
+        const accuracy = config.accuracy.min + Math.random() * (config.accuracy.max - config.accuracy.min)
+        const fatigueLevel = Math.min(80, config.fatigueLevel.min + sessionTime / 10)
+        const caloriesBurned = sessionTime * 0.15
+
+        updateMetrics({
+          hitRate,
+          reactionTime,
+          accuracy,
+          fatigueLevel,
+          caloriesBurned
+        })
       }, 1000)
       return () => { if (demoTimerRef.current) clearInterval(demoTimerRef.current); clearInterval(metricsTimer) }
     }
-  }, [demoMode, sessionTime])
+  }, [demoMode, sessionTime, user])
 
   useEffect(() => { if (demoMode) updatePoseData(DEMO_POSE_FRAMES[demoFrame]) }, [demoFrame, demoMode])
 
@@ -161,7 +180,23 @@ function Training() {
     } catch (err) { console.error('结束训练失败', err) }
   }
 
-  const startDemo = () => { setDemoMode(true); setSessionTime(0); timerRef.current = window.setInterval(() => setSessionTime((t) => t + 1), 1000); updateMetrics({ hitRate: 65 + Math.random() * 20, reactionTime: 180 + Math.random() * 80, accuracy: 70 + Math.random() * 20, fatigueLevel: 10 + Math.random() * 15, caloriesBurned: 5 + Math.random() * 10 }) }
+  const startDemo = () => {
+    const username = user?.username || 'demo1'
+    const config = getUserLevelConfig(username)
+
+    setDemoMode(true)
+    setSessionTime(0)
+    timerRef.current = window.setInterval(() => setSessionTime((t) => t + 1), 1000)
+
+    // 初始化数据根据用户水平
+    updateMetrics({
+      hitRate: config.hitRate.min + Math.random() * 10,
+      reactionTime: config.reactionTime.max - Math.random() * 20,
+      accuracy: config.accuracy.min + Math.random() * 10,
+      fatigueLevel: config.fatigueLevel.min,
+      caloriesBurned: 0
+    })
+  }
   const stopDemo = () => { setDemoMode(false); if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null }; updatePoseData([]) }
   const resetCamera = useCallback(() => setResetTrigger((t) => t + 1), [])
   const formatTime = (s: number) => `${Math.floor(s / 60).toString().padStart(2, '0')}:${(s % 60).toString().padStart(2, '0')}`
