@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { Row, Col, Card, Button, Statistic, Progress, Select, Space, Alert, Tag, Divider, Badge } from 'antd'
+import { Row, Col, Card, Button, Statistic, Progress, Select, Space, Alert, Tag, Divider, Badge, Tabs } from 'antd'
 import {
   PlayCircleOutlined,
   PauseCircleOutlined,
@@ -8,6 +8,7 @@ import {
   EyeOutlined,
   VideoCameraOutlined,
   WarningOutlined,
+  SwapOutlined,
 } from '@ant-design/icons'
 import { Liquid, Gauge } from '@ant-design/plots'
 import { Canvas, useThree } from '@react-three/fiber'
@@ -18,6 +19,9 @@ import { getUserLevelConfig } from '../utils/demoData'
 import { trainingApi, deviceApi } from '../services/api'
 import { wsService } from '../services/websocket'
 import * as THREE from 'three'
+import { ImageComparisonView } from '../components/PoseViewer/ImageComparisonView'
+import { ActionMatchingTable } from '../components/PoseViewer/ActionMatchingTable'
+import { generateActionMatches, type ActionMatchData } from '../utils/standardActions'
 
 // YOLOv11-Pose 17关键点骨架连接 (COCO格式)
 // 0:鼻子 1:左眼 2:右眼 3:左耳 4:右耳
@@ -140,6 +144,9 @@ function Training() {
   const [demoMode, setDemoMode] = useState(false)
   const [demoFrame, setDemoFrame] = useState(0)
   const [resetTrigger, setResetTrigger] = useState(0)
+  const [viewMode, setViewMode] = useState<'single' | 'comparison'>('single')
+  const [actionMatches, setActionMatches] = useState<ActionMatchData[]>([])
+  const [currentActionIndex, setCurrentActionIndex] = useState(0)
   const timerRef = useRef<number | null>(null)
   const demoTimerRef = useRef<number | null>(null)
   const { isTraining, currentSessionId, realtimeMetrics, poseData, startTraining, stopTraining, updateMetrics, updatePoseData } = useTrainingStore()
@@ -158,7 +165,17 @@ function Training() {
       const username = user?.username || 'demo1'
       const config = getUserLevelConfig(username)
 
-      demoTimerRef.current = window.setInterval(() => setDemoFrame((f) => (f + 1) % DEMO_POSE_FRAMES.length), 50)
+      demoTimerRef.current = window.setInterval(() => {
+        setDemoFrame((f) => {
+          const nextFrame = (f + 1) % DEMO_POSE_FRAMES.length
+          // 每60帧(3秒)切换一个动作
+          if (nextFrame % 60 === 0) {
+            setCurrentActionIndex((idx) => (idx + 1) % 20)
+          }
+          return nextFrame
+        })
+      }, 50)
+
       const metricsTimer = window.setInterval(() => {
         // 根据用户水平动态调整实时数据范围
         const hitRate = config.hitRate.min + Math.random() * (config.hitRate.max - config.hitRate.min)
@@ -212,6 +229,8 @@ function Training() {
 
     setDemoMode(true)
     setSessionTime(0)
+    setActionMatches(generateActionMatches(username))
+    setCurrentActionIndex(0)
     timerRef.current = window.setInterval(() => setSessionTime((t) => t + 1), 1000)
 
     // 初始化数据根据用户水平
@@ -223,7 +242,7 @@ function Training() {
       caloriesBurned: 0
     })
   }
-  const stopDemo = () => { setDemoMode(false); if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null }; updatePoseData([]) }
+  const stopDemo = () => { setDemoMode(false); if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null }; updatePoseData([]); setActionMatches([]) }
   const resetCamera = useCallback(() => setResetTrigger((t) => t + 1), [])
   const formatTime = (s: number) => `${Math.floor(s / 60).toString().padStart(2, '0')}:${(s % 60).toString().padStart(2, '0')}`
   const isActive = isTraining || demoMode
@@ -260,35 +279,78 @@ function Training() {
       </Card>
 
       <Row gutter={16}>
-        <Col xs={24} lg={14}>
-          <Card title={<Space><EyeOutlined /> 实时姿态监测 <Tag color="blue">3D可视化</Tag></Space>} extra={<Button icon={<ReloadOutlined />} size="small" onClick={resetCamera}>重置视角</Button>} style={{ height: 520 }} bodyStyle={{ height: 460, padding: 0, background: '#0d1117', position: 'relative' }}>
-            <Canvas camera={{ position: [0, 0, 2.5], fov: 55 }} shadows>
-              <color attach="background" args={['#0d1117']} />
-              <ambientLight intensity={0.4} />
-              <pointLight position={[5, 5, 5]} intensity={0.8} castShadow />
-              <pointLight position={[-5, 5, -5]} intensity={0.4} />
-              <PoseSkeleton keypoints={poseData} />
-              <Floor />
-              <CameraController resetTrigger={resetTrigger} />
-            </Canvas>
-            {!isActive && <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center', color: '#8c8c8c', pointerEvents: 'none' }}><ThunderboltOutlined style={{ fontSize: 64, marginBottom: 16, opacity: 0.3 }} /><p style={{ fontSize: 16 }}>点击"演示模式"查看实时姿态效果</p><p style={{ fontSize: 12, opacity: 0.6 }}>或连接设备开始真实训练</p></div>}
-          </Card>
+        <Col xs={24} lg={demoMode && viewMode === 'comparison' ? 24 : 14}>
+          {demoMode ? (
+            <Tabs
+              activeKey={viewMode}
+              onChange={(key) => setViewMode(key as 'single' | 'comparison')}
+              items={[
+                {
+                  key: 'single',
+                  label: <span><EyeOutlined /> 单画面姿态</span>,
+                  children: (
+                    <Card
+                      title={<Space><EyeOutlined /> 实时姿态监测 <Tag color="blue">3D可视化</Tag></Space>}
+                      extra={<Button icon={<ReloadOutlined />} size="small" onClick={resetCamera}>重置视角</Button>}
+                      style={{ height: 520 }}
+                      bodyStyle={{ height: 460, padding: 0, background: '#0d1117', position: 'relative' }}
+                    >
+                      <Canvas camera={{ position: [0, 0, 2.5], fov: 55 }} shadows>
+                        <color attach="background" args={['#0d1117']} />
+                        <ambientLight intensity={0.4} />
+                        <pointLight position={[5, 5, 5]} intensity={0.8} castShadow />
+                        <pointLight position={[-5, 5, -5]} intensity={0.4} />
+                        <PoseSkeleton keypoints={poseData} />
+                        <Floor />
+                        <CameraController resetTrigger={resetTrigger} />
+                      </Canvas>
+                    </Card>
+                  )
+                },
+                {
+                  key: 'comparison',
+                  label: <span><SwapOutlined /> 双画面对比</span>,
+                  children: (
+                    <div>
+                      <ImageComparisonView score={actionMatches[currentActionIndex]?.score || 0} />
+                      <ActionMatchingTable matches={actionMatches} />
+                    </div>
+                  )
+                }
+              ]}
+            />
+          ) : (
+            <Card title={<Space><EyeOutlined /> 实时姿态监测 <Tag color="blue">3D可视化</Tag></Space>} extra={<Button icon={<ReloadOutlined />} size="small" onClick={resetCamera}>重置视角</Button>} style={{ height: 520 }} bodyStyle={{ height: 460, padding: 0, background: '#0d1117', position: 'relative' }}>
+              <Canvas camera={{ position: [0, 0, 2.5], fov: 55 }} shadows>
+                <color attach="background" args={['#0d1117']} />
+                <ambientLight intensity={0.4} />
+                <pointLight position={[5, 5, 5]} intensity={0.8} castShadow />
+                <pointLight position={[-5, 5, -5]} intensity={0.4} />
+                <PoseSkeleton keypoints={poseData} />
+                <Floor />
+                <CameraController resetTrigger={resetTrigger} />
+              </Canvas>
+              {!isActive && <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center', color: '#8c8c8c', pointerEvents: 'none' }}><ThunderboltOutlined style={{ fontSize: 64, marginBottom: 16, opacity: 0.3 }} /><p style={{ fontSize: 16 }}>点击"演示模式"查看实时姿态效果</p><p style={{ fontSize: 12, opacity: 0.6 }}>或连接设备开始真实训练</p></div>}
+            </Card>
+          )}
         </Col>
 
-        <Col xs={24} lg={10}>
-          <Row gutter={[16, 16]}>
-            <Col span={12}><Card className="dashboard-card" size="small"><Statistic title="击球回传率" value={realtimeMetrics.hitRate} precision={1} suffix="%" valueStyle={{ color: realtimeMetrics.hitRate >= 60 ? '#52c41a' : '#faad14', fontSize: 28 }} /><Progress percent={realtimeMetrics.hitRate} showInfo={false} strokeColor={realtimeMetrics.hitRate >= 60 ? '#52c41a' : '#faad14'} size="small" /></Card></Col>
-            <Col span={12}><Card className="dashboard-card" size="small"><Statistic title="反应时间" value={realtimeMetrics.reactionTime} precision={0} suffix="ms" valueStyle={{ color: realtimeMetrics.reactionTime <= 400 ? '#52c41a' : '#ff4d4f', fontSize: 28 }} /><Progress percent={Math.max(0, 100 - realtimeMetrics.reactionTime / 10)} showInfo={false} strokeColor={realtimeMetrics.reactionTime <= 400 ? '#52c41a' : '#ff4d4f'} size="small" /></Card></Col>
-            <Col span={12}><Card className="dashboard-card" size="small" bodyStyle={{ padding: '12px' }}><Gauge {...gaugeConfig} /></Card></Col>
-            <Col span={12}><Card className="dashboard-card" size="small" bodyStyle={{ padding: '12px' }}><Liquid {...liquidConfig} /></Card></Col>
-            <Col span={12}><Card className="dashboard-card" size="small"><Statistic title="消耗卡路里" value={realtimeMetrics.caloriesBurned} precision={0} suffix="kcal" valueStyle={{ color: '#722ed1', fontSize: 28 }} /></Card></Col>
-            <Col span={12}><Card className="dashboard-card" size="small"><Statistic title="训练帧率" value={demoMode ? 20 : (isTraining ? 30 : 0)} suffix="FPS" valueStyle={{ color: '#1890ff', fontSize: 28 }} /></Card></Col>
-          </Row>
-          {realtimeMetrics.fatigueLevel > 70 && <Alert message="疲劳度较高" description="建议适当休息，避免运动损伤" type="warning" showIcon icon={<WarningOutlined />} style={{ marginTop: 16 }} />}
-          <Card title="实时AI建议" size="small" style={{ marginTop: 16 }}>
-            {isActive ? <div style={{ fontSize: 13 }}><p>🎯 <strong>击球姿势</strong>：手腕转动幅度良好</p><p>⚡ <strong>反应速度</strong>：{realtimeMetrics.reactionTime < 400 ? '表现优秀' : '可继续提升'}</p><p>💪 <strong>体能状态</strong>：{realtimeMetrics.fatigueLevel < 50 ? '状态充沛' : '注意休息'}</p></div> : <p style={{ color: '#8c8c8c' }}>开始训练后显示实时AI分析建议</p>}
-          </Card>
-        </Col>
+        {!(demoMode && viewMode === 'comparison') && (
+          <Col xs={24} lg={10}>
+            <Row gutter={[16, 16]}>
+              <Col span={12}><Card className="dashboard-card" size="small"><Statistic title="击球回传率" value={realtimeMetrics.hitRate} precision={1} suffix="%" valueStyle={{ color: realtimeMetrics.hitRate >= 60 ? '#52c41a' : '#faad14', fontSize: 28 }} /><Progress percent={realtimeMetrics.hitRate} showInfo={false} strokeColor={realtimeMetrics.hitRate >= 60 ? '#52c41a' : '#faad14'} size="small" /></Card></Col>
+              <Col span={12}><Card className="dashboard-card" size="small"><Statistic title="反应时间" value={realtimeMetrics.reactionTime} precision={0} suffix="ms" valueStyle={{ color: realtimeMetrics.reactionTime <= 400 ? '#52c41a' : '#ff4d4f', fontSize: 28 }} /><Progress percent={Math.max(0, 100 - realtimeMetrics.reactionTime / 10)} showInfo={false} strokeColor={realtimeMetrics.reactionTime <= 400 ? '#52c41a' : '#ff4d4f'} size="small" /></Card></Col>
+              <Col span={12}><Card className="dashboard-card" size="small" bodyStyle={{ padding: '12px' }}><Gauge {...gaugeConfig} /></Card></Col>
+              <Col span={12}><Card className="dashboard-card" size="small" bodyStyle={{ padding: '12px' }}><Liquid {...liquidConfig} /></Card></Col>
+              <Col span={12}><Card className="dashboard-card" size="small"><Statistic title="消耗卡路里" value={realtimeMetrics.caloriesBurned} precision={0} suffix="kcal" valueStyle={{ color: '#722ed1', fontSize: 28 }} /></Card></Col>
+              <Col span={12}><Card className="dashboard-card" size="small"><Statistic title="训练帧率" value={demoMode ? 20 : (isTraining ? 30 : 0)} suffix="FPS" valueStyle={{ color: '#1890ff', fontSize: 28 }} /></Card></Col>
+            </Row>
+            {realtimeMetrics.fatigueLevel > 70 && <Alert message="疲劳度较高" description="建议适当休息，避免运动损伤" type="warning" showIcon icon={<WarningOutlined />} style={{ marginTop: 16 }} />}
+            <Card title="实时AI建议" size="small" style={{ marginTop: 16 }}>
+              {isActive ? <div style={{ fontSize: 13 }}><p>🎯 <strong>击球姿势</strong>：手腕转动幅度良好</p><p>⚡ <strong>反应速度</strong>：{realtimeMetrics.reactionTime < 400 ? '表现优秀' : '可继续提升'}</p><p>💪 <strong>体能状态</strong>：{realtimeMetrics.fatigueLevel < 50 ? '状态充沛' : '注意休息'}</p></div> : <p style={{ color: '#8c8c8c' }}>开始训练后显示实时AI分析建议</p>}
+            </Card>
+          </Col>
+        )}
       </Row>
     </div>
   )
