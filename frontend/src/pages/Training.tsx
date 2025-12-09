@@ -36,6 +36,7 @@ const POSE_CONNECTIONS = [
   [11, 13], [13, 15],
   // 右腿
   [12, 14], [14, 16],
+]
 
 const DEMO_POSE_FRAMES = generateDemoPoseFrames()
 
