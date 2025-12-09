@@ -21,11 +21,11 @@ class PoseKeypoint(BaseModel):
 
 
 class PoseData(BaseModel):
-    """姿态数据 - MediaPipe 33关键点"""
+    """姿态数据 - YOLOv11-Pose 17关键点"""
     timestamp: datetime
     device_id: str
     user_id: str
-    keypoints: List[PoseKeypoint] = Field(..., min_length=33, max_length=33)
+    keypoints: List[PoseKeypoint] = Field(..., min_length=17, max_length=17)
     confidence: float = Field(ge=0, le=1)
 
 

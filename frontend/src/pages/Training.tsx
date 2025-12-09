@@ -19,13 +19,23 @@ import { trainingApi, deviceApi } from '../services/api'
 import { wsService } from '../services/websocket'
 import * as THREE from 'three'
 
+// YOLOv11-Pose 17关键点骨架连接 (COCO格式)
+// 0:鼻子 1:左眼 2:右眼 3:左耳 4:右耳
+// 5:左肩 6:右肩 7:左肘 8:右肘 9:左腕 10:右腕
+// 11:左髋 12:右髋 13:左膝 14:右膝 15:左踝 16:右踝
 const POSE_CONNECTIONS = [
-  [11, 12], [11, 13], [13, 15], [12, 14], [14, 16],
-  [11, 23], [12, 24], [23, 24],
-  [23, 25], [25, 27], [24, 26], [26, 28],
-  [15, 17], [15, 19], [17, 19], [16, 18], [16, 20], [18, 20],
-  [27, 29], [29, 31], [28, 30], [30, 32],
-]
+  // 面部
+  [0, 1], [0, 2], [1, 3], [2, 4],
+  // 躯干
+  [5, 6], [5, 11], [6, 12], [11, 12],
+  // 左臂
+  [5, 7], [7, 9],
+  // 右臂
+  [6, 8], [8, 10],
+  // 左腿
+  [11, 13], [13, 15],
+  // 右腿
+  [12, 14], [14, 16],
 
 const DEMO_POSE_FRAMES = generateDemoPoseFrames()
 
@@ -36,25 +46,35 @@ function generateDemoPoseFrames(): number[][][] {
     const phase = Math.sin(t * Math.PI * 4)
     const sway = Math.sin(t * Math.PI * 2) * 0.05
     const keypoints: number[][] = []
-    for (let i = 0; i < 33; i++) {
-      let x = 0.5, y = 0.5, z = 0
-      if (i === 0) { x = 0.5 + sway * 0.5; y = 0.15; z = 0 }
-      else if (i === 11) { x = 0.35; y = 0.3 + phase * 0.02; z = 0 }
-      else if (i === 12) { x = 0.65; y = 0.3 + phase * 0.02; z = 0 }
-      else if (i === 13) { x = 0.25 + phase * 0.1; y = 0.4 + phase * 0.15; z = -0.1 - phase * 0.2 }
-      else if (i === 14) { x = 0.75; y = 0.45; z = 0.05 }
-      else if (i === 15) { x = 0.15 + phase * 0.2; y = 0.35 + phase * 0.25; z = -0.2 - phase * 0.3 }
-      else if (i === 16) { x = 0.8; y = 0.55; z = 0.1 }
-      else if (i === 23) { x = 0.4; y = 0.55 + sway * 0.5; z = 0 }
-      else if (i === 24) { x = 0.6; y = 0.55 + sway * 0.5; z = 0 }
-      else if (i === 25) { x = 0.38 + sway; y = 0.75; z = 0.05 }
-      else if (i === 26) { x = 0.62 - sway; y = 0.72; z = -0.05 }
-      else if (i === 27) { x = 0.35 + sway; y = 0.95; z = 0.02 }
-      else if (i === 28) { x = 0.65 - sway; y = 0.92; z = -0.02 }
-      else if (i >= 1 && i <= 10) { x = 0.5 + (i % 2 === 0 ? 0.03 : -0.03); y = 0.12 + i * 0.008; z = 0 }
-      else { x = 0.5; y = 0.5 + i * 0.01; z = 0 }
-      keypoints.push([x, y, z, 0.95])
-    }
+
+    // YOLOv11-Pose 17个关键点动画
+    // 0: 鼻子
+    keypoints.push([0.5 + sway * 0.3, 0.15, 0, 0.95])
+    // 1-2: 眼睛
+    keypoints.push([0.48, 0.14, 0.01, 0.95])
+    keypoints.push([0.52, 0.14, 0.01, 0.95])
+    // 3-4: 耳朵
+    keypoints.push([0.46, 0.15, 0.02, 0.95])
+    keypoints.push([0.54, 0.15, 0.02, 0.95])
+    // 5-6: 肩膀
+    keypoints.push([0.42, 0.28 + phase * 0.02, 0, 0.95])
+    keypoints.push([0.58, 0.28 + phase * 0.02, 0, 0.95])
+    // 7-8: 肘部
+    keypoints.push([0.35 + phase * 0.08, 0.40 + phase * 0.12, -0.08 - phase * 0.15, 0.95])
+    keypoints.push([0.65, 0.42, 0.05, 0.95])
+    // 9-10: 手腕
+    keypoints.push([0.28 + phase * 0.15, 0.38 + phase * 0.20, -0.15 - phase * 0.25, 0.95])
+    keypoints.push([0.70, 0.50, 0.08, 0.95])
+    // 11-12: 髋部
+    keypoints.push([0.43, 0.55 + sway * 0.3, 0, 0.95])
+    keypoints.push([0.57, 0.55 + sway * 0.3, 0, 0.95])
+    // 13-14: 膝盖
+    keypoints.push([0.41 + sway * 0.5, 0.75, 0.03, 0.95])
+    keypoints.push([0.59 - sway * 0.5, 0.73, -0.03, 0.95])
+    // 15-16: 脚踝
+    keypoints.push([0.40 + sway * 0.6, 0.95, 0.02, 0.95])
+    keypoints.push([0.60 - sway * 0.6, 0.93, -0.02, 0.95])
+
     frames.push(keypoints)
   }
   return frames
@@ -74,14 +94,19 @@ function CameraController({ resetTrigger }: { resetTrigger: number }) {
 }
 
 function PoseSkeleton({ keypoints }: { keypoints: number[][] | null }) {
-  if (!keypoints || keypoints.length < 33) return null
+  if (!keypoints || keypoints.length < 17) return null
   const points = keypoints.map(([x, y, z]) => new THREE.Vector3((x - 0.5) * 2, -(y - 0.5) * 2, z * 2))
-  const getColor = (idx: number) => idx <= 10 ? '#ff6b6b' : idx <= 22 ? '#4ecdc4' : '#45b7d1'
+  // YOLOv11-Pose 17点配色方案
+  const getColor = (idx: number) => {
+    if (idx <= 4) return '#ff6b6b'  // 面部 - 红色
+    if (idx <= 10) return '#4ecdc4'  // 上肢 - 青色
+    return '#45b7d1'  // 下肢 - 蓝色
+  }
   return (
     <group>
       {points.map((point, i) => (
         <mesh key={i} position={point}>
-          <sphereGeometry args={[0.025, 16, 16]} />
+          <sphereGeometry args={[0.03, 16, 16]} />
           <meshStandardMaterial color={getColor(i)} emissive={getColor(i)} emissiveIntensity={0.3} />
         </mesh>
       ))}
@@ -89,7 +114,7 @@ function PoseSkeleton({ keypoints }: { keypoints: number[][] | null }) {
         if (start >= points.length || end >= points.length) return null
         return <Line key={i} points={[points[start], points[end]]} color="#ffffff" lineWidth={2} />
       })}
-      <Text position={[0, 1.1, 0]} fontSize={0.08} color="#52c41a" anchorX="center">实时姿态追踪</Text>
+      <Text position={[0, 1.1, 0]} fontSize={0.08} color="#52c41a" anchorX="center">YOLOv11-Pose 实时追踪</Text>
     </group>
   )
 }
@@ -210,7 +235,7 @@ function Training() {
       <Row justify="space-between" align="middle" style={{ marginBottom: 24 }}>
         <Col>
           <h2 style={{ margin: 0 }}>🏸 实时训练监测{demoMode && <Badge count="演示模式" style={{ marginLeft: 12, backgroundColor: '#722ed1' }} />}</h2>
-          <p style={{ color: '#8c8c8c', margin: '4px 0 0 0' }}>MediaPipe 33关键点姿态分析 · AI实时反馈</p>
+          <p style={{ color: '#8c8c8c', margin: '4px 0 0 0' }}>YOLOv11-Pose 17关键点姿态分析 · AI实时反馈</p>
         </Col>
       </Row>
 

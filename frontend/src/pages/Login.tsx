@@ -91,7 +91,7 @@ const ParticleBackground = () => {
 
 // 特性卡片
 const features = [
-  { icon: <EyeOutlined style={{ fontSize: 28, color: '#1890ff' }} />, title: 'AI姿态识别', desc: 'MediaPipe 33关键点实时追踪' },
+  { icon: <EyeOutlined style={{ fontSize: 28, color: '#1890ff' }} />, title: 'AI姿态识别', desc: 'YOLOv11-Pose 17关键点实时追踪' },
   { icon: <ThunderboltOutlined style={{ fontSize: 28, color: '#faad14' }} />, title: '实时反馈', desc: '毫秒级响应数据分析' },
   { icon: <SafetyOutlined style={{ fontSize: 28, color: '#52c41a' }} />, title: '智能建议', desc: '基于AI的个性化训练方案' },
 ]
@@ -182,7 +182,7 @@ function Login() {
             </Space>
 
             <Paragraph style={{ color: 'rgba(255,255,255,0.85)', fontSize: 16, marginBottom: 32, lineHeight: 1.8 }}>
-              基于计算机视觉与深度学习的智能运动训练系统，通过MediaPipe姿态识别与YOLOv5目标检测，
+              基于计算机视觉与深度学习的智能运动训练系统，通过YOLOv11-Pose姿态识别与YOLOv11目标检测，
               为运动员提供专业级的实时动作分析、个性化训练建议与数据可视化服务。
             </Paragraph>
 
@@ -218,7 +218,7 @@ function Login() {
             </Row>
 
             <div style={{ marginTop: 32, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-              {['Orange Pi 5', 'MediaPipe', 'YOLOv5', 'React', 'FastAPI', 'Three.js'].map((tech) => (
+              {['Orange Pi 5', 'YOLOv11-Pose', 'YOLOv11', 'React', 'FastAPI', 'Three.js'].map((tech) => (
                 <span key={tech} style={{ background: 'rgba(255,255,255,0.15)', padding: '4px 12px', borderRadius: 20, fontSize: 12, color: 'rgba(255,255,255,0.9)' }}>
                   {tech}
                 </span>
