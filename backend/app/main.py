@@ -139,6 +139,21 @@ async def health_check():
     return {"status": "healthy"}
 
 
+@app.get("/keepalive")
+async def keepalive():
+    """保活接口 - 查询数据库防止MongoDB休眠"""
+    db = Database.get_mongo()
+    user_count = await db.users.count_documents({})
+    device_count = await db.devices.count_documents({})
+    return {
+        "status": "active",
+        "database": "connected",
+        "users": user_count,
+        "devices": device_count,
+        "message": "Database activity recorded"
+    }
+
+
 @app.post("/admin/reset-demo-data")
 async def reset_demo_data():
     """重置演示数据"""
