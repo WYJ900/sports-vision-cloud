@@ -134,12 +134,12 @@ async def root():
     }
 
 
-@app.get("/health")
+@app.api_route("/health", methods=["GET", "HEAD"])
 async def health_check():
     return {"status": "healthy"}
 
 
-@app.get("/keepalive")
+@app.api_route("/keepalive", methods=["GET", "HEAD"])
 async def keepalive():
     """保活接口 - 查询数据库防止MongoDB休眠"""
     db = Database.get_mongo()
