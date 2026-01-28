@@ -172,11 +172,14 @@ function Training() {
         setHasVideoStream(true)
         // 同时更新关键点数据（如果有）
         if (data.pose?.keypoints) {
+          console.log('[Training] 收到骨骼点数据:', data.pose.keypoints.length, '个点')
+          console.log('[Training] 第一个点示例:', data.pose.keypoints[0])
           updatePoseData(data.pose.keypoints)
+        } else {
+          console.log('[Training] 未收到骨骼点数据, pose:', data.pose)
         }
         // 更新实时指标（如果有）
         if (data.metrics) {
-          // 可选：显示 FPS 和推理时间
           console.log(`FPS: ${data.metrics.fps}, 推理时间: ${data.metrics.inference_time_ms}ms`)
         }
       }
@@ -325,17 +328,73 @@ function Training() {
                       bodyStyle={{ height: 460, padding: 0, background: '#0d1117', position: 'relative' }}
                     >
                       {hasVideoStream && videoFrame ? (
-                        // 显示实时视频流（带骨架标注）
-                        <img
-                          src={videoFrame}
-                          alt="实时训练画面"
-                          style={{
-                            width: '100%',
-                            height: '100%',
-                            objectFit: 'contain',
-                            display: 'block'
-                          }}
-                        />
+                        // 显示实时视频流 + Canvas叠加骨骼点
+                        <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+                          <img
+                            src={videoFrame}
+                            alt="实时训练画面"
+                            style={{
+                              width: '100%',
+                              height: '100%',
+                              objectFit: 'contain',
+                              display: 'block'
+                            }}
+                          />
+                          {/* Canvas叠加层用于绘制骨骼点 */}
+                          <canvas
+                            ref={(canvas) => {
+                              if (canvas && poseData && poseData.length >= 17) {
+                                const ctx = canvas.getContext('2d')
+                                if (!ctx) return
+                                // 获取图片实际显示尺寸
+                                const img = canvas.previousElementSibling as HTMLImageElement
+                                if (!img) return
+                                const rect = img.getBoundingClientRect()
+                                canvas.width = rect.width
+                                canvas.height = rect.height
+                                ctx.clearRect(0, 0, canvas.width, canvas.height)
+
+                                // 绘制骨骼连接线
+                                ctx.strokeStyle = '#00ff00'
+                                ctx.lineWidth = 2
+                                POSE_CONNECTIONS.forEach(([start, end]) => {
+                                  if (start < poseData.length && end < poseData.length) {
+                                    const [x1, y1] = poseData[start]
+                                    const [x2, y2] = poseData[end]
+                                    ctx.beginPath()
+                                    ctx.moveTo(x1 * canvas.width, y1 * canvas.height)
+                                    ctx.lineTo(x2 * canvas.width, y2 * canvas.height)
+                                    ctx.stroke()
+                                  }
+                                })
+
+                                // 绘制关键点
+                                poseData.forEach((kp, idx) => {
+                                  const [x, y] = kp
+                                  const confidence = kp[3] || kp[2] || 0.5
+                                  if (confidence < 0.3) return // 置信度太低不绘制
+
+                                  ctx.beginPath()
+                                  ctx.arc(x * canvas.width, y * canvas.height, 4, 0, Math.PI * 2)
+                                  // 面部红色，上肢青色，下肢蓝色
+                                  ctx.fillStyle = idx <= 4 ? '#ff6b6b' : idx <= 10 ? '#4ecdc4' : '#45b7d1'
+                                  ctx.fill()
+                                  ctx.strokeStyle = '#ffffff'
+                                  ctx.lineWidth = 1
+                                  ctx.stroke()
+                                })
+                              }
+                            }}
+                            style={{
+                              position: 'absolute',
+                              top: 0,
+                              left: 0,
+                              width: '100%',
+                              height: '100%',
+                              pointerEvents: 'none'
+                            }}
+                          />
+                        </div>
                       ) : (
                         // 显示3D骨架（演示模式或无视频流时）
                         <Canvas camera={{ position: [0, 0, 2.5], fov: 55 }} shadows>
@@ -374,17 +433,68 @@ function Training() {
               bodyStyle={{ height: 460, padding: 0, background: '#0d1117', position: 'relative' }}
             >
               {hasVideoStream && videoFrame ? (
-                // 显示实时视频流
-                <img
-                  src={videoFrame}
-                  alt="实时训练画面"
-                  style={{
-                    width: '100%',
-                    height: '100%',
-                    objectFit: 'contain',
-                    display: 'block'
-                  }}
-                />
+                // 显示实时视频流 + Canvas叠加骨骼点
+                <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+                  <img
+                    src={videoFrame}
+                    alt="实时训练画面"
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'contain',
+                      display: 'block'
+                    }}
+                  />
+                  <canvas
+                    ref={(canvas) => {
+                      if (canvas && poseData && poseData.length >= 17) {
+                        const ctx = canvas.getContext('2d')
+                        if (!ctx) return
+                        const img = canvas.previousElementSibling as HTMLImageElement
+                        if (!img) return
+                        const rect = img.getBoundingClientRect()
+                        canvas.width = rect.width
+                        canvas.height = rect.height
+                        ctx.clearRect(0, 0, canvas.width, canvas.height)
+
+                        ctx.strokeStyle = '#00ff00'
+                        ctx.lineWidth = 2
+                        POSE_CONNECTIONS.forEach(([start, end]) => {
+                          if (start < poseData.length && end < poseData.length) {
+                            const [x1, y1] = poseData[start]
+                            const [x2, y2] = poseData[end]
+                            ctx.beginPath()
+                            ctx.moveTo(x1 * canvas.width, y1 * canvas.height)
+                            ctx.lineTo(x2 * canvas.width, y2 * canvas.height)
+                            ctx.stroke()
+                          }
+                        })
+
+                        poseData.forEach((kp, idx) => {
+                          const [x, y] = kp
+                          const confidence = kp[3] || kp[2] || 0.5
+                          if (confidence < 0.3) return
+
+                          ctx.beginPath()
+                          ctx.arc(x * canvas.width, y * canvas.height, 4, 0, Math.PI * 2)
+                          ctx.fillStyle = idx <= 4 ? '#ff6b6b' : idx <= 10 ? '#4ecdc4' : '#45b7d1'
+                          ctx.fill()
+                          ctx.strokeStyle = '#ffffff'
+                          ctx.lineWidth = 1
+                          ctx.stroke()
+                        })
+                      }
+                    }}
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      width: '100%',
+                      height: '100%',
+                      pointerEvents: 'none'
+                    }}
+                  />
+                </div>
               ) : (
                 <>
                   <Canvas camera={{ position: [0, 0, 2.5], fov: 55 }} shadows>
