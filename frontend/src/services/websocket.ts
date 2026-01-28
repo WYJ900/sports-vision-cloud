@@ -9,10 +9,14 @@ class WebSocketService {
   private reconnectTimer: number | null = null
 
   connect(userId: string) {
-    // 使用环境变量配置的后端地址
-    const wsBaseUrl = import.meta.env.VITE_WS_BASE_URL ||
-                      (window.location.protocol === 'https:' ? 'wss:' : 'ws:') + '//' + window.location.host
+    // 生产环境直接使用 Render 后端地址
+    const isProduction = window.location.hostname !== 'localhost'
+    const wsBaseUrl = isProduction
+      ? 'wss://sports-vision-cloud.onrender.com'
+      : 'ws://localhost:8000'
+
     this.url = `${wsBaseUrl}/ws/user/${userId}`
+    console.log('[WS] 连接地址:', this.url)
 
     this.createConnection()
   }
