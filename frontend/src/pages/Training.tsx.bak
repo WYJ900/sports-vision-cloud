@@ -19,26 +19,17 @@ import { getUserLevelConfig } from '../utils/demoData'
 import { trainingApi, deviceApi } from '../services/api'
 import { wsService } from '../services/websocket'
 import * as THREE from 'three'
-import { ImageComparisonView } from '../components/PoseViewer/ImageComparisonView'
+import { PoseComparisonView } from '../components/PoseViewer/PoseComparisonView'
 import { ActionMatchingTable } from '../components/PoseViewer/ActionMatchingTable'
-import { generateActionMatches, type ActionMatchData } from '../utils/standardActions'
+import { generateActionMatches, getCurrentStandardPose, type ActionMatchData } from '../utils/standardActions'
 
 // YOLOv11-Pose 17关键点骨架连接 (COCO格式)
-// 0:鼻子 1:左眼 2:右眼 3:左耳 4:右耳
-// 5:左肩 6:右肩 7:左肘 8:右肘 9:左腕 10:右腕
-// 11:左髋 12:右髋 13:左膝 14:右膝 15:左踝 16:右踝
 const POSE_CONNECTIONS = [
-  // 面部
   [0, 1], [0, 2], [1, 3], [2, 4],
-  // 躯干
   [5, 6], [5, 11], [6, 12], [11, 12],
-  // 左臂
   [5, 7], [7, 9],
-  // 右臂
   [6, 8], [8, 10],
-  // 左腿
   [11, 13], [13, 15],
-  // 右腿
   [12, 14], [14, 16],
 ]
 
@@ -52,31 +43,21 @@ function generateDemoPoseFrames(): number[][][] {
     const sway = Math.sin(t * Math.PI * 2) * 0.05
     const keypoints: number[][] = []
 
-    // YOLOv11-Pose 17个关键点动画
-    // 0: 鼻子
     keypoints.push([0.5 + sway * 0.3, 0.15, 0, 0.95])
-    // 1-2: 眼睛
     keypoints.push([0.48, 0.14, 0.01, 0.95])
     keypoints.push([0.52, 0.14, 0.01, 0.95])
-    // 3-4: 耳朵
     keypoints.push([0.46, 0.15, 0.02, 0.95])
     keypoints.push([0.54, 0.15, 0.02, 0.95])
-    // 5-6: 肩膀
     keypoints.push([0.42, 0.28 + phase * 0.02, 0, 0.95])
     keypoints.push([0.58, 0.28 + phase * 0.02, 0, 0.95])
-    // 7-8: 肘部
     keypoints.push([0.35 + phase * 0.08, 0.40 + phase * 0.12, -0.08 - phase * 0.15, 0.95])
     keypoints.push([0.65, 0.42, 0.05, 0.95])
-    // 9-10: 手腕
     keypoints.push([0.28 + phase * 0.15, 0.38 + phase * 0.20, -0.15 - phase * 0.25, 0.95])
     keypoints.push([0.70, 0.50, 0.08, 0.95])
-    // 11-12: 髋部
     keypoints.push([0.43, 0.55 + sway * 0.3, 0, 0.95])
     keypoints.push([0.57, 0.55 + sway * 0.3, 0, 0.95])
-    // 13-14: 膝盖
     keypoints.push([0.41 + sway * 0.5, 0.75, 0.03, 0.95])
     keypoints.push([0.59 - sway * 0.5, 0.73, -0.03, 0.95])
-    // 15-16: 脚踝
     keypoints.push([0.40 + sway * 0.6, 0.95, 0.02, 0.95])
     keypoints.push([0.60 - sway * 0.6, 0.93, -0.02, 0.95])
 
@@ -101,11 +82,10 @@ function CameraController({ resetTrigger }: { resetTrigger: number }) {
 function PoseSkeleton({ keypoints }: { keypoints: number[][] | null }) {
   if (!keypoints || keypoints.length < 17) return null
   const points = keypoints.map(([x, y, z]) => new THREE.Vector3((x - 0.5) * 2, -(y - 0.5) * 2, z * 2))
-  // YOLOv11-Pose 17点配色方案
   const getColor = (idx: number) => {
-    if (idx <= 4) return '#ff6b6b'  // 面部 - 红色
-    if (idx <= 10) return '#4ecdc4'  // 上肢 - 青色
-    return '#45b7d1'  // 下肢 - 蓝色
+    if (idx <= 4) return '#ff6b6b'
+    if (idx <= 10) return '#4ecdc4'
+    return '#45b7d1'
   }
   return (
     <group>
@@ -136,94 +116,6 @@ function Floor() {
   )
 }
 
-// 视频流+骨骼叠加组件
-function VideoWithSkeleton({ videoFrame, poseData }: { videoFrame: string; poseData: number[][] | null }) {
-  const canvasRef = useRef<HTMLCanvasElement>(null)
-  const imgRef = useRef<HTMLImageElement>(null)
-
-  useEffect(() => {
-    const canvas = canvasRef.current
-    const img = imgRef.current
-    if (!canvas || !img || !poseData || poseData.length < 17) return
-
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
-
-    // 等待图片加载完成后再绘制
-    const drawSkeleton = () => {
-      const rect = img.getBoundingClientRect()
-      canvas.width = rect.width
-      canvas.height = rect.height
-      ctx.clearRect(0, 0, canvas.width, canvas.height)
-
-      // 绘制骨骼连接线
-      ctx.strokeStyle = '#00ff00'
-      ctx.lineWidth = 3
-      POSE_CONNECTIONS.forEach(([start, end]) => {
-        if (start < poseData.length && end < poseData.length) {
-          const [x1, y1] = poseData[start]
-          const [x2, y2] = poseData[end]
-          const conf1 = poseData[start][2] || 0.5
-          const conf2 = poseData[end][2] || 0.5
-          if (conf1 < 0.3 || conf2 < 0.3) return
-          ctx.beginPath()
-          ctx.moveTo(x1 * canvas.width, y1 * canvas.height)
-          ctx.lineTo(x2 * canvas.width, y2 * canvas.height)
-          ctx.stroke()
-        }
-      })
-
-      // 绘制关键点
-      poseData.forEach((kp, idx) => {
-        const [x, y] = kp
-        const confidence = kp[2] || 0.5
-        if (confidence < 0.3) return
-
-        ctx.beginPath()
-        ctx.arc(x * canvas.width, y * canvas.height, 6, 0, Math.PI * 2)
-        ctx.fillStyle = idx <= 4 ? '#ff6b6b' : idx <= 10 ? '#4ecdc4' : '#45b7d1'
-        ctx.fill()
-        ctx.strokeStyle = '#ffffff'
-        ctx.lineWidth = 2
-        ctx.stroke()
-      })
-    }
-
-    if (img.complete) {
-      drawSkeleton()
-    } else {
-      img.onload = drawSkeleton
-    }
-  }, [videoFrame, poseData])
-
-  return (
-    <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-      <img
-        ref={imgRef}
-        src={videoFrame}
-        alt="实时训练画面"
-        style={{
-          width: '100%',
-          height: '100%',
-          objectFit: 'contain',
-          display: 'block'
-        }}
-      />
-      <canvas
-        ref={canvasRef}
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          width: '100%',
-          height: '100%',
-          pointerEvents: 'none'
-        }}
-      />
-    </div>
-  )
-}
-
 function Training() {
   const { user } = useAuthStore()
   const [devices, setDevices] = useState<any[]>([])
@@ -235,44 +127,18 @@ function Training() {
   const [viewMode, setViewMode] = useState<'single' | 'comparison'>('single')
   const [actionMatches, setActionMatches] = useState<ActionMatchData[]>([])
   const [currentActionIndex, setCurrentActionIndex] = useState(0)
-  const [videoFrame, setVideoFrame] = useState<string>('')  // Base64视频帧
-  const [hasVideoStream, setHasVideoStream] = useState(false)  // 是否有视频流
+
   const timerRef = useRef<number | null>(null)
   const demoTimerRef = useRef<number | null>(null)
   const { isTraining, currentSessionId, realtimeMetrics, poseData, startTraining, stopTraining, updateMetrics, updatePoseData } = useTrainingStore()
 
   useEffect(() => {
     loadDevices()
-
-    // 连接 WebSocket（使用用户名作为 user_id）
-    const userId = user?.username || 'demo1'
-    wsService.connect(userId)
-    console.log('[Training] WebSocket 连接中... user:', userId)
-
     const unsubPose = wsService.subscribe('pose_update', (data: any) => { if (data.data?.keypoints) updatePoseData(data.data.keypoints) })
     const unsubMetrics = wsService.subscribe('metrics_update', (data: any) => {
       if (data.data) updateMetrics({ hitRate: data.data.hit_rate || 0, reactionTime: data.data.reaction_time || 0, accuracy: data.data.accuracy || 0, fatigueLevel: data.data.fatigue_level || 0 })
     })
-    // 订阅视频帧消息（扁平格式）
-    const unsubVideo = wsService.subscribe('video_frame', (data: any) => {
-      if (data.frame) {
-        setVideoFrame(data.frame)
-        setHasVideoStream(true)
-        // 同时更新关键点数据（如果有）
-        if (data.pose?.keypoints) {
-          console.log('[Training] 收到骨骼点数据:', data.pose.keypoints.length, '个点')
-          console.log('[Training] 第一个点示例:', data.pose.keypoints[0])
-          updatePoseData(data.pose.keypoints)
-        } else {
-          console.log('[Training] 未收到骨骼点数据, pose:', data.pose)
-        }
-        // 更新实时指标（如果有）
-        if (data.metrics) {
-          console.log(`FPS: ${data.metrics.fps}, 推理时间: ${data.metrics.inference_time_ms}ms`)
-        }
-      }
-    })
-    return () => { unsubPose(); unsubMetrics(); unsubVideo(); wsService.disconnect(); if (timerRef.current) clearInterval(timerRef.current); if (demoTimerRef.current) clearInterval(demoTimerRef.current) }
+    return () => { unsubPose(); unsubMetrics(); if (timerRef.current) clearInterval(timerRef.current); if (demoTimerRef.current) clearInterval(demoTimerRef.current) }
   }, [])
 
   useEffect(() => {
@@ -280,19 +146,22 @@ function Training() {
       const username = user?.username || 'demo1'
       const config = getUserLevelConfig(username)
 
+      // 生成动作匹配数据
+      setActionMatches(generateActionMatches(username))
+      setCurrentActionIndex(0)
+
       demoTimerRef.current = window.setInterval(() => {
         setDemoFrame((f) => {
           const nextFrame = (f + 1) % DEMO_POSE_FRAMES.length
-          // 每60帧(3秒)切换一个动作
-          if (nextFrame % 60 === 0) {
-            setCurrentActionIndex((idx) => (idx + 1) % 20)
+          // 每30帧切换一个动作
+          if (nextFrame % 30 === 0) {
+            setCurrentActionIndex((idx) => (idx + 1) % 10)
           }
           return nextFrame
         })
       }, 50)
 
       const metricsTimer = window.setInterval(() => {
-        // 根据用户水平动态调整实时数据范围
         const hitRate = config.hitRate.min + Math.random() * (config.hitRate.max - config.hitRate.min)
         const reactionTime = config.reactionTime.min + Math.random() * (config.reactionTime.max - config.reactionTime.min)
         const accuracy = config.accuracy.min + Math.random() * (config.accuracy.max - config.accuracy.min)
@@ -311,12 +180,7 @@ function Training() {
     }
   }, [demoMode, sessionTime, user])
 
-  useEffect(() => {
-    // 只有在演示模式且没有视频流时，才使用演示数据
-    if (demoMode && !hasVideoStream) {
-      updatePoseData(DEMO_POSE_FRAMES[demoFrame])
-    }
-  }, [demoFrame, demoMode, hasVideoStream])
+  useEffect(() => { if (demoMode) updatePoseData(DEMO_POSE_FRAMES[demoFrame]) }, [demoFrame, demoMode])
 
   const loadDevices = async () => {
     try { const res: any = await deviceApi.getMyDevices(); setDevices(res.data || []); if (res.data?.length > 0) setSelectedDevice(res.data[0].device_id) }
@@ -349,11 +213,8 @@ function Training() {
 
     setDemoMode(true)
     setSessionTime(0)
-    setActionMatches(generateActionMatches(username))
-    setCurrentActionIndex(0)
     timerRef.current = window.setInterval(() => setSessionTime((t) => t + 1), 1000)
 
-    // 初始化数据根据用户水平
     updateMetrics({
       hitRate: config.hitRate.min + Math.random() * 10,
       reactionTime: config.reactionTime.max - Math.random() * 20,
@@ -362,13 +223,24 @@ function Training() {
       caloriesBurned: 0
     })
   }
-  const stopDemo = () => { setDemoMode(false); if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null }; updatePoseData([]); setActionMatches([]) }
+
+  const stopDemo = () => {
+    setDemoMode(false);
+    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null }
+    updatePoseData([])
+    setActionMatches([])
+  }
+
   const resetCamera = useCallback(() => setResetTrigger((t) => t + 1), [])
   const formatTime = (s: number) => `${Math.floor(s / 60).toString().padStart(2, '0')}:${(s % 60).toString().padStart(2, '0')}`
   const isActive = isTraining || demoMode
 
   const liquidConfig = { percent: realtimeMetrics.fatigueLevel / 100, outline: { border: 2, distance: 4 }, wave: { length: 128 }, statistic: { content: { formatter: () => `${realtimeMetrics.fatigueLevel.toFixed(0)}%`, style: { fontSize: '20px' } }, title: { formatter: () => '疲劳度', style: { fontSize: '12px' } } }, height: 140, color: realtimeMetrics.fatigueLevel > 70 ? '#ff4d4f' : realtimeMetrics.fatigueLevel > 50 ? '#faad14' : '#1890ff' }
   const gaugeConfig = { percent: realtimeMetrics.accuracy / 100, range: { color: 'l(0) 0:#30BF78 1:#1890ff' }, indicator: { pointer: { style: { stroke: '#D0D0D0' } }, pin: { style: { stroke: '#D0D0D0' } } }, statistic: { content: { formatter: () => `${realtimeMetrics.accuracy.toFixed(1)}%`, style: { fontSize: '18px', fontWeight: 'bold' } }, title: { formatter: () => '姿态准确度', style: { fontSize: '11px' } } }, height: 140 }
+
+  // 获取当前匹配动作的分数
+  const currentMatchScore = actionMatches.length > 0 ? actionMatches[currentActionIndex].score : 0
+  const standardPose = actionMatches.length > 0 ? getCurrentStandardPose(currentActionIndex) : null
 
   return (
     <div>
@@ -399,7 +271,7 @@ function Training() {
       </Card>
 
       <Row gutter={16}>
-        <Col xs={24} lg={demoMode && viewMode === 'comparison' ? 24 : 14}>
+        <Col xs={24} lg={demoMode ? 24 : 14}>
           {demoMode ? (
             <Tabs
               activeKey={viewMode}
@@ -410,26 +282,20 @@ function Training() {
                   label: <span><EyeOutlined /> 单画面姿态</span>,
                   children: (
                     <Card
-                      title={<Space><EyeOutlined /> 实时姿态监测 {hasVideoStream ? <Tag color="green">视频流</Tag> : <Tag color="blue">3D可视化</Tag>}</Space>}
+                      title={<Space><EyeOutlined /> 实时姿态监测 <Tag color="blue">3D可视化</Tag></Space>}
                       extra={<Button icon={<ReloadOutlined />} size="small" onClick={resetCamera}>重置视角</Button>}
                       style={{ height: 520 }}
                       bodyStyle={{ height: 460, padding: 0, background: '#0d1117', position: 'relative' }}
                     >
-                      {hasVideoStream && videoFrame ? (
-                        // 显示实时视频流 + 骨骼叠加
-                        <VideoWithSkeleton videoFrame={videoFrame} poseData={poseData} />
-                      ) : (
-                        // 显示3D骨架（演示模式或无视频流时）
-                        <Canvas camera={{ position: [0, 0, 2.5], fov: 55 }} shadows>
-                          <color attach="background" args={['#0d1117']} />
-                          <ambientLight intensity={0.4} />
-                          <pointLight position={[5, 5, 5]} intensity={0.8} castShadow />
-                          <pointLight position={[-5, 5, -5]} intensity={0.4} />
-                          <PoseSkeleton keypoints={poseData} />
-                          <Floor />
-                          <CameraController resetTrigger={resetTrigger} />
-                        </Canvas>
-                      )}
+                      <Canvas camera={{ position: [0, 0, 2.5], fov: 55 }} shadows>
+                        <color attach="background" args={['#0d1117']} />
+                        <ambientLight intensity={0.4} />
+                        <pointLight position={[5, 5, 5]} intensity={0.8} castShadow />
+                        <pointLight position={[-5, 5, -5]} intensity={0.4} />
+                        <PoseSkeleton keypoints={poseData} />
+                        <Floor />
+                        <CameraController resetTrigger={resetTrigger} />
+                      </Canvas>
                     </Card>
                   )
                 },
@@ -438,10 +304,11 @@ function Training() {
                   label: <span><SwapOutlined /> 双画面对比</span>,
                   children: (
                     <div>
-                      <ImageComparisonView
-                        score={actionMatches[currentActionIndex]?.score || 0}
-                        videoFrame={hasVideoStream ? videoFrame : ''}
-                        poseData={poseData}
+                      <PoseComparisonView
+                        trainingPose={poseData}
+                        standardPose={standardPose}
+                        score={currentMatchScore}
+                        resetTrigger={resetTrigger}
                       />
                       <ActionMatchingTable matches={actionMatches} />
                     </div>
@@ -450,34 +317,22 @@ function Training() {
               ]}
             />
           ) : (
-            <Card
-              title={<Space><EyeOutlined /> 实时姿态监测 {hasVideoStream ? <Tag color="green">视频流</Tag> : <Tag color="blue">3D可视化</Tag>}</Space>}
-              extra={<Button icon={<ReloadOutlined />} size="small" onClick={resetCamera}>重置视角</Button>}
-              style={{ height: 520 }}
-              bodyStyle={{ height: 460, padding: 0, background: '#0d1117', position: 'relative' }}
-            >
-              {hasVideoStream && videoFrame ? (
-                // 显示实时视频流 + 骨骼叠加
-                <VideoWithSkeleton videoFrame={videoFrame} poseData={poseData} />
-              ) : (
-                <>
-                  <Canvas camera={{ position: [0, 0, 2.5], fov: 55 }} shadows>
-                    <color attach="background" args={['#0d1117']} />
-                    <ambientLight intensity={0.4} />
-                    <pointLight position={[5, 5, 5]} intensity={0.8} castShadow />
-                    <pointLight position={[-5, 5, -5]} intensity={0.4} />
-                    <PoseSkeleton keypoints={poseData} />
-                    <Floor />
-                    <CameraController resetTrigger={resetTrigger} />
-                  </Canvas>
-                  {!isActive && <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center', color: '#8c8c8c', pointerEvents: 'none' }}><ThunderboltOutlined style={{ fontSize: 64, marginBottom: 16, opacity: 0.3 }} /><p style={{ fontSize: 16 }}>点击"演示模式"查看实时姿态效果</p><p style={{ fontSize: 12, opacity: 0.6 }}>或连接设备开始真实训练</p></div>}
-                </>
-              )}
+            <Card title={<Space><EyeOutlined /> 实时姿态监测 <Tag color="blue">3D可视化</Tag></Space>} extra={<Button icon={<ReloadOutlined />} size="small" onClick={resetCamera}>重置视角</Button>} style={{ height: 520 }} bodyStyle={{ height: 460, padding: 0, background: '#0d1117', position: 'relative' }}>
+              <Canvas camera={{ position: [0, 0, 2.5], fov: 55 }} shadows>
+                <color attach="background" args={['#0d1117']} />
+                <ambientLight intensity={0.4} />
+                <pointLight position={[5, 5, 5]} intensity={0.8} castShadow />
+                <pointLight position={[-5, 5, -5]} intensity={0.4} />
+                <PoseSkeleton keypoints={poseData} />
+                <Floor />
+                <CameraController resetTrigger={resetTrigger} />
+              </Canvas>
+              {!isActive && <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center', color: '#8c8c8c', pointerEvents: 'none' }}><ThunderboltOutlined style={{ fontSize: 64, marginBottom: 16, opacity: 0.3 }} /><p style={{ fontSize: 16 }}>点击"演示模式"查看实时姿态效果</p><p style={{ fontSize: 12, opacity: 0.6 }}>或连接设备开始真实训练</p></div>}
             </Card>
           )}
         </Col>
 
-        {!(demoMode && viewMode === 'comparison') && (
+        {!demoMode && (
           <Col xs={24} lg={10}>
             <Row gutter={[16, 16]}>
               <Col span={12}><Card className="dashboard-card" size="small"><Statistic title="击球回传率" value={realtimeMetrics.hitRate} precision={1} suffix="%" valueStyle={{ color: realtimeMetrics.hitRate >= 60 ? '#52c41a' : '#faad14', fontSize: 28 }} /><Progress percent={realtimeMetrics.hitRate} showInfo={false} strokeColor={realtimeMetrics.hitRate >= 60 ? '#52c41a' : '#faad14'} size="small" /></Card></Col>
