@@ -114,6 +114,19 @@ async def websocket_device(websocket: WebSocket, device_id: str):
                         "data": data.get("data")
                     })
 
+            elif msg_type == "video_frame":
+                # 转发视频帧（Base64编码的JPEG图片 + 姿态数据 + 指标）
+                user_id = data.get("user_id")
+                if user_id:
+                    await manager.send_to_user(user_id, {
+                        "type": "video_frame",
+                        "device_id": device_id,
+                        "frame": data.get("frame"),
+                        "pose": data.get("pose"),
+                        "metrics": data.get("metrics"),
+                        "timestamp": data.get("timestamp")
+                    })
+
             elif msg_type == "heartbeat":
                 # 心跳响应
                 await websocket.send_json({"type": "heartbeat_ack"})

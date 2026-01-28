@@ -2,19 +2,21 @@ import { Card, Tag, Badge } from 'antd'
 
 interface ImageComparisonViewProps {
   score?: number
+  videoFrame?: string  // Base64编码的实时视频帧
 }
 
 export const ImageComparisonView: React.FC<ImageComparisonViewProps> = ({
   score = 0,
+  videoFrame = '',
 }) => {
   return (
     <div style={{ display: 'flex', gap: '16px', height: '520px' }}>
-      {/* 训练动作 */}
+      {/* 训练动作 - 实时视频流 */}
       <Card
         title={
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <span>训练动作</span>
-            <Tag color="blue">实时</Tag>
+            <Tag color={videoFrame ? 'green' : 'blue'}>{videoFrame ? '实时视频流' : '实时'}</Tag>
           </div>
         }
         style={{ flex: 1, height: '100%' }}
@@ -24,18 +26,25 @@ export const ImageComparisonView: React.FC<ImageComparisonViewProps> = ({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          background: '#f0f0f0',
+          background: '#0d1117',
         }}
       >
-        <img
-          src="/training-pose.png"
-          alt="训练动作"
-          style={{
-            maxWidth: '100%',
-            maxHeight: '100%',
-            objectFit: 'contain',
-          }}
-        />
+        {videoFrame ? (
+          <img
+            src={videoFrame}
+            alt="实时训练画面"
+            style={{
+              maxWidth: '100%',
+              maxHeight: '100%',
+              objectFit: 'contain',
+            }}
+          />
+        ) : (
+          <div style={{ color: '#8c8c8c', textAlign: 'center' }}>
+            <p>等待视频流...</p>
+            <p style={{ fontSize: 12 }}>香橙派设备连接后将显示实时画面</p>
+          </div>
+        )}
       </Card>
 
       {/* 标准动作 */}

@@ -147,6 +147,8 @@ function Training() {
   const [viewMode, setViewMode] = useState<'single' | 'comparison'>('single')
   const [actionMatches, setActionMatches] = useState<ActionMatchData[]>([])
   const [currentActionIndex, setCurrentActionIndex] = useState(0)
+  const [videoFrame, setVideoFrame] = useState<string>('')  // Base64视频帧
+  const [hasVideoStream, setHasVideoStream] = useState(false)  // 是否有视频流
   const timerRef = useRef<number | null>(null)
   const demoTimerRef = useRef<number | null>(null)
   const { isTraining, currentSessionId, realtimeMetrics, poseData, startTraining, stopTraining, updateMetrics, updatePoseData } = useTrainingStore()
@@ -157,7 +159,23 @@ function Training() {
     const unsubMetrics = wsService.subscribe('metrics_update', (data: any) => {
       if (data.data) updateMetrics({ hitRate: data.data.hit_rate || 0, reactionTime: data.data.reaction_time || 0, accuracy: data.data.accuracy || 0, fatigueLevel: data.data.fatigue_level || 0 })
     })
-    return () => { unsubPose(); unsubMetrics(); if (timerRef.current) clearInterval(timerRef.current); if (demoTimerRef.current) clearInterval(demoTimerRef.current) }
+    // 订阅视频帧消息（扁平格式）
+    const unsubVideo = wsService.subscribe('video_frame', (data: any) => {
+      if (data.frame) {
+        setVideoFrame(data.frame)
+        setHasVideoStream(true)
+        // 同时更新关键点数据（如果有）
+        if (data.pose?.keypoints) {
+          updatePoseData(data.pose.keypoints)
+        }
+        // 更新实时指标（如果有）
+        if (data.metrics) {
+          // 可选：显示 FPS 和推理时间
+          console.log(`FPS: ${data.metrics.fps}, 推理时间: ${data.metrics.inference_time_ms}ms`)
+        }
+      }
+    })
+    return () => { unsubPose(); unsubMetrics(); unsubVideo(); if (timerRef.current) clearInterval(timerRef.current); if (demoTimerRef.current) clearInterval(demoTimerRef.current) }
   }, [])
 
   useEffect(() => {
@@ -196,7 +214,12 @@ function Training() {
     }
   }, [demoMode, sessionTime, user])
 
-  useEffect(() => { if (demoMode) updatePoseData(DEMO_POSE_FRAMES[demoFrame]) }, [demoFrame, demoMode])
+  useEffect(() => {
+    // 只有在演示模式且没有视频流时，才使用演示数据
+    if (demoMode && !hasVideoStream) {
+      updatePoseData(DEMO_POSE_FRAMES[demoFrame])
+    }
+  }, [demoFrame, demoMode, hasVideoStream])
 
   const loadDevices = async () => {
     try { const res: any = await deviceApi.getMyDevices(); setDevices(res.data || []); if (res.data?.length > 0) setSelectedDevice(res.data[0].device_id) }
@@ -290,20 +313,35 @@ function Training() {
                   label: <span><EyeOutlined /> 单画面姿态</span>,
                   children: (
                     <Card
-                      title={<Space><EyeOutlined /> 实时姿态监测 <Tag color="blue">3D可视化</Tag></Space>}
+                      title={<Space><EyeOutlined /> 实时姿态监测 {hasVideoStream ? <Tag color="green">视频流</Tag> : <Tag color="blue">3D可视化</Tag>}</Space>}
                       extra={<Button icon={<ReloadOutlined />} size="small" onClick={resetCamera}>重置视角</Button>}
                       style={{ height: 520 }}
                       bodyStyle={{ height: 460, padding: 0, background: '#0d1117', position: 'relative' }}
                     >
-                      <Canvas camera={{ position: [0, 0, 2.5], fov: 55 }} shadows>
-                        <color attach="background" args={['#0d1117']} />
-                        <ambientLight intensity={0.4} />
-                        <pointLight position={[5, 5, 5]} intensity={0.8} castShadow />
-                        <pointLight position={[-5, 5, -5]} intensity={0.4} />
-                        <PoseSkeleton keypoints={poseData} />
-                        <Floor />
-                        <CameraController resetTrigger={resetTrigger} />
-                      </Canvas>
+                      {hasVideoStream && videoFrame ? (
+                        // 显示实时视频流（带骨架标注）
+                        <img
+                          src={videoFrame}
+                          alt="实时训练画面"
+                          style={{
+                            width: '100%',
+                            height: '100%',
+                            objectFit: 'contain',
+                            display: 'block'
+                          }}
+                        />
+                      ) : (
+                        // 显示3D骨架（演示模式或无视频流时）
+                        <Canvas camera={{ position: [0, 0, 2.5], fov: 55 }} shadows>
+                          <color attach="background" args={['#0d1117']} />
+                          <ambientLight intensity={0.4} />
+                          <pointLight position={[5, 5, 5]} intensity={0.8} castShadow />
+                          <pointLight position={[-5, 5, -5]} intensity={0.4} />
+                          <PoseSkeleton keypoints={poseData} />
+                          <Floor />
+                          <CameraController resetTrigger={resetTrigger} />
+                        </Canvas>
+                      )}
                     </Card>
                   )
                 },
@@ -312,7 +350,10 @@ function Training() {
                   label: <span><SwapOutlined /> 双画面对比</span>,
                   children: (
                     <div>
-                      <ImageComparisonView score={actionMatches[currentActionIndex]?.score || 0} />
+                      <ImageComparisonView
+                        score={actionMatches[currentActionIndex]?.score || 0}
+                        videoFrame={hasVideoStream ? videoFrame : ''}
+                      />
                       <ActionMatchingTable matches={actionMatches} />
                     </div>
                   )
@@ -320,17 +361,38 @@ function Training() {
               ]}
             />
           ) : (
-            <Card title={<Space><EyeOutlined /> 实时姿态监测 <Tag color="blue">3D可视化</Tag></Space>} extra={<Button icon={<ReloadOutlined />} size="small" onClick={resetCamera}>重置视角</Button>} style={{ height: 520 }} bodyStyle={{ height: 460, padding: 0, background: '#0d1117', position: 'relative' }}>
-              <Canvas camera={{ position: [0, 0, 2.5], fov: 55 }} shadows>
-                <color attach="background" args={['#0d1117']} />
-                <ambientLight intensity={0.4} />
-                <pointLight position={[5, 5, 5]} intensity={0.8} castShadow />
-                <pointLight position={[-5, 5, -5]} intensity={0.4} />
-                <PoseSkeleton keypoints={poseData} />
-                <Floor />
-                <CameraController resetTrigger={resetTrigger} />
-              </Canvas>
-              {!isActive && <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center', color: '#8c8c8c', pointerEvents: 'none' }}><ThunderboltOutlined style={{ fontSize: 64, marginBottom: 16, opacity: 0.3 }} /><p style={{ fontSize: 16 }}>点击"演示模式"查看实时姿态效果</p><p style={{ fontSize: 12, opacity: 0.6 }}>或连接设备开始真实训练</p></div>}
+            <Card
+              title={<Space><EyeOutlined /> 实时姿态监测 {hasVideoStream ? <Tag color="green">视频流</Tag> : <Tag color="blue">3D可视化</Tag>}</Space>}
+              extra={<Button icon={<ReloadOutlined />} size="small" onClick={resetCamera}>重置视角</Button>}
+              style={{ height: 520 }}
+              bodyStyle={{ height: 460, padding: 0, background: '#0d1117', position: 'relative' }}
+            >
+              {hasVideoStream && videoFrame ? (
+                // 显示实时视频流
+                <img
+                  src={videoFrame}
+                  alt="实时训练画面"
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'contain',
+                    display: 'block'
+                  }}
+                />
+              ) : (
+                <>
+                  <Canvas camera={{ position: [0, 0, 2.5], fov: 55 }} shadows>
+                    <color attach="background" args={['#0d1117']} />
+                    <ambientLight intensity={0.4} />
+                    <pointLight position={[5, 5, 5]} intensity={0.8} castShadow />
+                    <pointLight position={[-5, 5, -5]} intensity={0.4} />
+                    <PoseSkeleton keypoints={poseData} />
+                    <Floor />
+                    <CameraController resetTrigger={resetTrigger} />
+                  </Canvas>
+                  {!isActive && <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center', color: '#8c8c8c', pointerEvents: 'none' }}><ThunderboltOutlined style={{ fontSize: 64, marginBottom: 16, opacity: 0.3 }} /><p style={{ fontSize: 16 }}>点击"演示模式"查看实时姿态效果</p><p style={{ fontSize: 12, opacity: 0.6 }}>或连接设备开始真实训练</p></div>}
+                </>
+              )}
             </Card>
           )}
         </Col>
