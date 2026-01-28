@@ -1,10 +1,10 @@
 import axios, { AxiosInstance, InternalAxiosRequestConfig } from 'axios'
 import { useAuthStore } from '../stores/authStore'
 
-// 生产环境直接使用后端地址，开发环境使用代理
-const API_BASE_URL = window.location.hostname === 'localhost'
-  ? '/api/v1'
-  : 'https://sports-vision-cloud.onrender.com/api/v1'
+// 使用环境变量配置后端地址
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
+  ? `${import.meta.env.VITE_API_BASE_URL}/api/v1`
+  : '/api/v1'  // 开发环境使用代理
 
 const api: AxiosInstance = axios.create({
   baseURL: API_BASE_URL,
