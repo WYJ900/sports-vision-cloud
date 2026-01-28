@@ -155,6 +155,12 @@ function Training() {
 
   useEffect(() => {
     loadDevices()
+
+    // 连接 WebSocket（使用用户名作为 user_id）
+    const userId = user?.username || 'demo1'
+    wsService.connect(userId)
+    console.log('[Training] WebSocket 连接中... user:', userId)
+
     const unsubPose = wsService.subscribe('pose_update', (data: any) => { if (data.data?.keypoints) updatePoseData(data.data.keypoints) })
     const unsubMetrics = wsService.subscribe('metrics_update', (data: any) => {
       if (data.data) updateMetrics({ hitRate: data.data.hit_rate || 0, reactionTime: data.data.reaction_time || 0, accuracy: data.data.accuracy || 0, fatigueLevel: data.data.fatigue_level || 0 })
@@ -175,7 +181,7 @@ function Training() {
         }
       }
     })
-    return () => { unsubPose(); unsubMetrics(); unsubVideo(); if (timerRef.current) clearInterval(timerRef.current); if (demoTimerRef.current) clearInterval(demoTimerRef.current) }
+    return () => { unsubPose(); unsubMetrics(); unsubVideo(); wsService.disconnect(); if (timerRef.current) clearInterval(timerRef.current); if (demoTimerRef.current) clearInterval(demoTimerRef.current) }
   }, [])
 
   useEffect(() => {
