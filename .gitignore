@@ -37,3 +37,9 @@ Thumbs.db
 # 临时文件
 *.tmp
 *.temp
+tmpclaude-*
+*.backup
+*.bak
+*.bak-*
+*.before-sync
+*.old
